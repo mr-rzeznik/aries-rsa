@@ -9,11 +9,13 @@
 
     <groupId>org.apache.aries.rsa.provider</groupId>
     <artifactId>org.apache.aries.rsa.provider.fastbin</artifactId>
+    <version>1.11.0.KB</version>
     <packaging>bundle</packaging>
     <name>Aries Remote Service Admin provider FastBin</name>
     <description>Provider for Java Serialization over FastBin</description>
 
     <properties>
+        <parent.project.version>1.11.0</parent.project.version>
         <topDirectoryLocation>../..</topDirectoryLocation>
     </properties>
 
@@ -21,6 +23,7 @@
         <dependency>
             <groupId>org.apache.aries.rsa</groupId>
             <artifactId>org.apache.aries.rsa.spi</artifactId>
+            <version>${parent.project.version}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>

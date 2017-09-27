@@ -22,9 +22,11 @@
 
     <artifactId>rsa-features</artifactId>
     <packaging>pom</packaging>
+    <version>1.11.0.KB</version>
     <name>Aries Remote Service Admin Features</name>
 
     <properties>
+        <parent.project.version>1.11.0</parent.project.version>
         <topDirectoryLocation>../..</topDirectoryLocation>
         <karaf.version>4.0.4</karaf.version>
     </properties>
@@ -49,32 +51,32 @@
         <dependency>
             <groupId>org.apache.aries.rsa</groupId>
             <artifactId>org.apache.aries.rsa.spi</artifactId>
-            <version>${project.version}</version>
+            <version>${parent.project.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.aries.rsa</groupId>
             <artifactId>org.apache.aries.rsa.core</artifactId>
-            <version>${project.version}</version>
+            <version>${parent.project.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.aries.rsa</groupId>
             <artifactId>org.apache.aries.rsa.topology-manager</artifactId>
-            <version>${project.version}</version>
+            <version>${parent.project.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.aries.rsa.discovery</groupId>
             <artifactId>org.apache.aries.rsa.discovery.local</artifactId>
-            <version>${project.version}</version>
+            <version>${parent.project.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.aries.rsa.discovery</groupId>
             <artifactId>org.apache.aries.rsa.discovery.zookeeper</artifactId>
-            <version>${project.version}</version>
+            <version>${parent.project.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.aries.rsa.provider</groupId>
             <artifactId>org.apache.aries.rsa.provider.tcp</artifactId>
-            <version>${project.version}</version>
+            <version>${parent.project.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.aries.rsa.provider</groupId>

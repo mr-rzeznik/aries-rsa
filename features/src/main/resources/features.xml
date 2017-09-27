@@ -1,21 +1,21 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <features xmlns="http://karaf.apache.org/xmlns/features/v1.2.0" name="aries-rsa-${project.version}">
 
-    <feature name="aries-rsa-core" version="${project.version}">
+    <feature name="aries-rsa-core" version="${parent.project.version}">
         <feature>scr</feature>
-        <bundle>mvn:org.apache.aries.rsa/org.apache.aries.rsa.spi/${project.version}</bundle>
-        <bundle>mvn:org.apache.aries.rsa/org.apache.aries.rsa.core/${project.version}</bundle>
-        <bundle>mvn:org.apache.aries.rsa/org.apache.aries.rsa.topology-manager/${project.version}</bundle>
-        <bundle>mvn:org.apache.aries.rsa.discovery/org.apache.aries.rsa.discovery.command/${project.version}</bundle>
+        <bundle>mvn:org.apache.aries.rsa/org.apache.aries.rsa.spi/${parent.project.version}</bundle>
+        <bundle>mvn:org.apache.aries.rsa/org.apache.aries.rsa.core/${parent.project.version}</bundle>
+        <bundle>mvn:org.apache.aries.rsa/org.apache.aries.rsa.topology-manager/${parent.project.version}</bundle>
+        <bundle>mvn:org.apache.aries.rsa.discovery/org.apache.aries.rsa.discovery.command/${parent.project.version}</bundle>
         <conditional>
             <condition>eventadmin</condition>
-            <bundle>mvn:org.apache.aries.rsa/org.apache.aries.rsa.eapub/${project.version}</bundle>
+            <bundle>mvn:org.apache.aries.rsa/org.apache.aries.rsa.eapub/${parent.project.version}</bundle>
         </conditional>
     </feature>
     
-    <feature name="aries-rsa-provider-tcp" version="${project.version}">
+    <feature name="aries-rsa-provider-tcp" version="${parent.project.version}">
         <feature>aries-rsa-core</feature>
-        <bundle>mvn:org.apache.aries.rsa.provider/org.apache.aries.rsa.provider.tcp/${project.version}</bundle>
+        <bundle>mvn:org.apache.aries.rsa.provider/org.apache.aries.rsa.provider.tcp/${parent.project.version}</bundle>
     </feature>
 
     <feature name="aries-rsa-provider-fastbin" version="${project.version}">
@@ -25,28 +25,28 @@
         <bundle>mvn:org.apache.aries.rsa.provider/org.apache.aries.rsa.provider.fastbin/${project.version}</bundle>
     </feature>
 
-    <feature name="aries-rsa-discovery-local" version="${project.version}">
+    <feature name="aries-rsa-discovery-local" version="${parent.project.version}">
         <feature>aries-rsa-core</feature>
-        <bundle>mvn:org.apache.aries.rsa.discovery/org.apache.aries.rsa.discovery.local/${project.version}</bundle>
+        <bundle>mvn:org.apache.aries.rsa.discovery/org.apache.aries.rsa.discovery.local/${parent.project.version}</bundle>
     </feature>
 
-    <feature name="aries-rsa-discovery-config" version="${project.version}">
+    <feature name="aries-rsa-discovery-config" version="${parent.project.version}">
         <feature>aries-rsa-core</feature>
-        <bundle>mvn:org.apache.aries.rsa.discovery/org.apache.aries.rsa.discovery.config/${project.version}</bundle>
+        <bundle>mvn:org.apache.aries.rsa.discovery/org.apache.aries.rsa.discovery.config/${parent.project.version}</bundle>
     </feature>
 
-    <feature name="aries-rsa-discovery-zookeeper" version="${project.version}">
+    <feature name="aries-rsa-discovery-zookeeper" version="${parent.project.version}">
         <feature>aries-rsa-core</feature>
         <bundle>mvn:org.apache.zookeeper/zookeeper/${zookeeper.version}</bundle>
-        <bundle>mvn:org.apache.aries.rsa.discovery/org.apache.aries.rsa.discovery.local/${project.version}</bundle>
-        <bundle>mvn:org.apache.aries.rsa.discovery/org.apache.aries.rsa.discovery.zookeeper/${project.version}</bundle>
+        <bundle>mvn:org.apache.aries.rsa.discovery/org.apache.aries.rsa.discovery.local/${parent.project.version}</bundle>
+        <bundle>mvn:org.apache.aries.rsa.discovery/org.apache.aries.rsa.discovery.zookeeper/${parent.project.version}</bundle>
         
         <!-- Create config with defaults from metatype -->
         <config name="org.apache.aries.rsa.discovery.zookeeper">
         </config>
     </feature>
     
-    <feature name="aries-rsa-discovery-zookeeper-server" version="${project.version}">
+    <feature name="aries-rsa-discovery-zookeeper-server" version="${parent.project.version}">
         <feature>aries-rsa-discovery-zookeeper</feature>
 
         <!-- Create config with defaults from metatype -->
