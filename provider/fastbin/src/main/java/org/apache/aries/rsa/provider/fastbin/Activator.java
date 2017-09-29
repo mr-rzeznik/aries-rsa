@@ -33,6 +33,7 @@ public class Activator extends BaseActivator implements ManagedService {
 
     static Activator INSTANCE;
     FastBinProvider provider;
+    SerializationStrategyListener serializationStrategyListener;
     ClientInvoker client;
     ServerInvoker server;
 
@@ -57,11 +58,21 @@ public class Activator extends BaseActivator implements ManagedService {
         props.put(RemoteConstants.REMOTE_INTENTS_SUPPORTED, new String[]{});
         props.put(RemoteConstants.REMOTE_CONFIGS_SUPPORTED, provider.getSupportedTypes());
         register(DistributionProvider.class, provider, props);
+        //start serializationStrategyListener
+        serializationStrategyListener = new SerializationStrategyListener(bundleContext, provider);
     }
 
     @Override
     protected void doStop() {
         super.doStop();
+        //stop serializationStrategyListener
+        if (serializationStrategyListener != null) {
+            try {
+                serializationStrategyListener.close();
+            } finally {
+                serializationStrategyListener = null;
+            }
+        }
         if (provider != null) {
             try {
                 provider.close();

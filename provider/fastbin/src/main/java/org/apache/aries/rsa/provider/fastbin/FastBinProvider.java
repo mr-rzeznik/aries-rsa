@@ -24,6 +24,8 @@ import java.lang.reflect.Proxy;
 import java.net.URI;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import org.apache.aries.rsa.provider.fastbin.api.ObjectSerializationStrategy;
+import org.apache.aries.rsa.provider.fastbin.api.ProtobufSerializationStrategy;
 
 import org.apache.aries.rsa.provider.fastbin.api.SerializationStrategy;
 import org.apache.aries.rsa.provider.fastbin.io.ClientInvoker;
@@ -51,7 +53,7 @@ public class FastBinProvider implements DistributionProvider {
     private final long timeout;
 
     private final DispatchQueue queue = Dispatch.createQueue();
-    private final Map<String, SerializationStrategy> serializationStrategies = new ConcurrentHashMap<>();
+    private final Map<String, SerializationStrategy> serializationStrategies;
 
     private ClientInvoker client;
     private ServerInvoker server;
@@ -60,11 +62,27 @@ public class FastBinProvider implements DistributionProvider {
         this.uri = uri;
         this.exportedAddress = exportedAddress;
         this.timeout = timeout;
+        //Init serializationStrategies map
+        this.serializationStrategies = new ConcurrentHashMap<>();
+        this.serializationStrategies.put(ObjectSerializationStrategy.INSTANCE.name(), ObjectSerializationStrategy.INSTANCE);
+        this.serializationStrategies.put(ProtobufSerializationStrategy.INSTANCE.name(), ProtobufSerializationStrategy.INSTANCE);
         // Create client and server
         this.client = new ClientInvokerImpl(queue, timeout, serializationStrategies);
         this.server = new ServerInvokerImpl(uri, queue, serializationStrategies);
         this.client.start();
         this.server.start();
+    }
+    
+    public void registerSerializationStrategy(SerializationStrategy serializationStrategy) {
+        serializationStrategies.put(serializationStrategy.name(), serializationStrategy);
+    }
+    
+    public void unregisterSerializationStrategy(SerializationStrategy serializationStrategy) {
+        serializationStrategies.remove(serializationStrategy.name());
+    }
+    
+    public void unregisterSerializationStrategy(String serializationStrategyName) {
+        serializationStrategies.remove(serializationStrategyName);
     }
 
     public void close() {
