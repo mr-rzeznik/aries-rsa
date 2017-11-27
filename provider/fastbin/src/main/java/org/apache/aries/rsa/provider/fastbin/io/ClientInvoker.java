@@ -19,9 +19,12 @@
 package org.apache.aries.rsa.provider.fastbin.io;
 
 import java.lang.reflect.InvocationHandler;
+import java.util.Map;
+import org.apache.aries.rsa.provider.fastbin.api.MethodSignatureIntent;
 
 public interface ClientInvoker extends Service {
 
-    InvocationHandler getProxy(String address, String service, ClassLoader classLoader);
+    InvocationHandler getProxy(String address, String service, ClassLoader classLoader,
+        Map<String, MethodSignatureIntent> serviceIntents);
 
 }

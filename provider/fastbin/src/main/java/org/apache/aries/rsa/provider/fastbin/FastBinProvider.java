@@ -20,10 +20,13 @@ package org.apache.aries.rsa.provider.fastbin;
 
 import java.io.IOException;
 import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.net.URI;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import org.apache.aries.rsa.provider.fastbin.api.MethodSignatureIntent;
 import org.apache.aries.rsa.provider.fastbin.api.ObjectSerializationStrategy;
 import org.apache.aries.rsa.provider.fastbin.api.ProtobufSerializationStrategy;
 
@@ -57,6 +60,7 @@ public class FastBinProvider implements DistributionProvider {
 
     private ClientInvoker client;
     private ServerInvoker server;
+    private Map<String, MethodSignatureIntent> intents;
 
     public FastBinProvider(java.lang.String uri, java.lang.String exportedAddress, long timeout) throws Exception {
         this.uri = uri;
@@ -66,6 +70,7 @@ public class FastBinProvider implements DistributionProvider {
         this.serializationStrategies = new ConcurrentHashMap<>();
         this.serializationStrategies.put(ObjectSerializationStrategy.INSTANCE.name(), ObjectSerializationStrategy.INSTANCE);
         this.serializationStrategies.put(ProtobufSerializationStrategy.INSTANCE.name(), ProtobufSerializationStrategy.INSTANCE);
+        intents = new HashMap<>();
         // Create client and server
         this.client = new ClientInvokerImpl(queue, timeout, serializationStrategies);
         this.server = new ServerInvokerImpl(uri, queue, serializationStrategies);
@@ -159,6 +164,14 @@ public class FastBinProvider implements DistributionProvider {
             }
             public void unget() {
             }
+
+            @Override
+            public void validateMethodSignature(String intentName, Method method, String value) {
+                MethodSignatureIntent intent = intents.get(intentName);
+                if(intent != null) {
+                    intent.validateMethodSignature(method, value);
+                }
+            }
         }, serviceO.getClass().getClassLoader());
 
         return new Endpoint() {
@@ -182,8 +195,32 @@ public class FastBinProvider implements DistributionProvider {
             throws IntentUnsatisfiedException {
 
         String address = (String) endpoint.getProperties().get(FASTBIN_ADDRESS);
-        InvocationHandler handler = client.getProxy(address, endpoint.getId(), cl);
+        Map<String, MethodSignatureIntent> serviceIntents = new HashMap<>();
+        String intentsLab = (String) endpoint.getProperties().get(MethodSignatureIntent.INTENT_TYPE);
+        if(intentsLab != null && !intentsLab.isEmpty()) {
+            for(String intentName : intentsLab.split(" ")) {
+                MethodSignatureIntent i = intents.get(intentName);
+                if(i == null) {
+                    throw new IntentUnsatisfiedException("Unsatisfied intent: " + intentName);
+                }
+                serviceIntents.put(intentName, i);
+            }
+        }
+        InvocationHandler handler = client.getProxy(address, endpoint.getId(), cl, serviceIntents);
         return Proxy.newProxyInstance(cl, interfaces, handler);
     }
 
+    public void registerMethodSignatureIntent(String intentName, MethodSignatureIntent service) {
+        intents.put(intentName, service);
+//        if(server != null) {
+//            server.addIntent(intentName, service);
+//        }
+    }
+
+    public void unregisterMethodSignatureIntent(String intentName) {
+        intents.remove(intentName);
+//        if(server != null) {
+//            server.removeIntent(intentName);
+//        }
+    }
 }

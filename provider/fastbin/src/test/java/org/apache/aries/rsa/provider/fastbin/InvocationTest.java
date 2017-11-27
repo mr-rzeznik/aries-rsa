@@ -22,6 +22,7 @@ import static org.fusesource.hawtdispatch.Dispatch.createQueue;
 import static org.junit.Assert.*;
 
 import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.lang.reflect.UndeclaredThrowableException;
 import java.util.ArrayList;
@@ -78,10 +79,17 @@ public class InvocationTest {
                 }
                 public void unget() {
                 }
+
+                @Override
+                public void validateMethodSignature(String intentName, Method method,
+                    String value) {
+
+                }
             }, HelloImpl.class.getClassLoader());
 
 
-            InvocationHandler handler = client.getProxy(server.getConnectAddress(), "service-id", HelloImpl.class.getClassLoader());
+            InvocationHandler handler = client.getProxy(server.getConnectAddress(), "service-id", HelloImpl.class.getClassLoader(),
+                null);
             Hello hello  = (Hello) Proxy.newProxyInstance(HelloImpl.class.getClassLoader(), new Class[] { Hello.class }, handler);
 
             assertEquals("Hello Fabric!", hello.hello("Fabric"));
@@ -137,10 +145,17 @@ public class InvocationTest {
                 }
                 public void unget() {
                 }
+
+                @Override
+                public void validateMethodSignature(String intentName, Method method,
+                    String value) {
+
+                }
             }, Hello2Impl.class.getClassLoader());
 
 
-            InvocationHandler handler = client.getProxy(server.getConnectAddress(), "service-id-broken", HelloImpl.class.getClassLoader());
+            InvocationHandler handler = client.getProxy(server.getConnectAddress(), "service-id-broken", HelloImpl.class.getClassLoader(),
+                null);
             Hello2 hello  = (Hello2) Proxy.newProxyInstance(Hello2Impl.class.getClassLoader(), new Class[] { Hello2.class }, handler);
 
             try{
@@ -185,9 +200,16 @@ public class InvocationTest {
                 }
                 public void unget() {
                 }
+
+                @Override
+                public void validateMethodSignature(String intentName, Method method,
+                    String value) {
+
+                }
             }, HelloImpl.class.getClassLoader());
 
-            InvocationHandler handler = client.getProxy(server.getConnectAddress(), "service-id", HelloImpl.class.getClassLoader());
+            InvocationHandler handler = client.getProxy(server.getConnectAddress(), "service-id", HelloImpl.class.getClassLoader(),
+                null);
             Hello hello  = (Hello) Proxy.newProxyInstance(HelloImpl.class.getClassLoader(), new Class[] { Hello.class }, handler);
             assertNotEquals("Hashcode should be handled by the proxy and not be a remote call",-7, hello.hashCode());
             assertFalse("equals should be handled by the proxy and not be a remote call",hello.equals(serviceImpl));
@@ -218,10 +240,16 @@ public class InvocationTest {
     			}
     			public void unget() {
     			}
-    		}, HelloImpl.class.getClassLoader());
+
+            @Override
+            public void validateMethodSignature(String intentName, Method method, String value) {
+
+            }
+        }, HelloImpl.class.getClassLoader());
 
 
-    		InvocationHandler handler = client.getProxy(server.getConnectAddress(), "service-id", HelloImpl.class.getClassLoader());
+    		InvocationHandler handler = client.getProxy(server.getConnectAddress(), "service-id", HelloImpl.class.getClassLoader(),
+            null);
     		Hello hello  = (Hello) Proxy.newProxyInstance(HelloImpl.class.getClassLoader(), new Class[] { Hello.class }, handler);
 
     		char[] chars = new char[65*1024];
@@ -268,10 +296,16 @@ public class InvocationTest {
     			}
     			public void unget() {
     			}
-    		}, HelloImpl.class.getClassLoader());
+
+            @Override
+            public void validateMethodSignature(String intentName, Method method, String value) {
+
+            }
+        }, HelloImpl.class.getClassLoader());
 
 
-    		InvocationHandler handler = client.getProxy(server.getConnectAddress(), "service-id", HelloImpl.class.getClassLoader());
+    		InvocationHandler handler = client.getProxy(server.getConnectAddress(), "service-id", HelloImpl.class.getClassLoader(),
+            null);
     		final Hello hello  = (Hello) Proxy.newProxyInstance(HelloImpl.class.getClassLoader(), new Class[] { Hello.class }, handler);
 
             final AtomicInteger requests = new AtomicInteger(0);
@@ -337,10 +371,16 @@ public class InvocationTest {
     			}
     			public void unget() {
     			}
-    		}, HelloImpl.class.getClassLoader());
+
+            @Override
+            public void validateMethodSignature(String intentName, Method method, String value) {
+
+            }
+        }, HelloImpl.class.getClassLoader());
 
 
-    		InvocationHandler handler = client.getProxy(server.getConnectAddress(), "service-id", HelloImpl.class.getClassLoader());
+    		InvocationHandler handler = client.getProxy(server.getConnectAddress(), "service-id", HelloImpl.class.getClassLoader(),
+            null);
     		Hello hello  = (Hello) Proxy.newProxyInstance(HelloImpl.class.getClassLoader(), new Class[] { Hello.class }, handler);
 
     		char[] chars = new char[65*1024];
@@ -374,10 +414,17 @@ public class InvocationTest {
                 }
                 public void unget() {
                 }
+
+                @Override
+                public void validateMethodSignature(String intentName, Method method,
+                    String value) {
+
+                }
             }, HelloImpl.class.getClassLoader());
 
 
-            InvocationHandler handler = client.getProxy(server.getConnectAddress(), "service-id", HelloImpl.class.getClassLoader());
+            InvocationHandler handler = client.getProxy(server.getConnectAddress(), "service-id", HelloImpl.class.getClassLoader(),
+                null);
 
             final Hello hello  = (Hello) Proxy.newProxyInstance(HelloImpl.class.getClassLoader(), new Class[] { Hello.class }, handler);
 
@@ -529,10 +576,17 @@ public class InvocationTest {
                 }
                 public void unget() {
                 }
+
+                @Override
+                public void validateMethodSignature(String intentName, Method method,
+                    String value) {
+
+                }
             }, HelloImpl.class.getClassLoader());
 
 
-            InvocationHandler handler = client.getProxy(server.getConnectAddress(), "service-id", HelloImpl.class.getClassLoader());
+            InvocationHandler handler = client.getProxy(server.getConnectAddress(), "service-id", HelloImpl.class.getClassLoader(),
+                null);
 
             final Hello hello  = (Hello) Proxy.newProxyInstance(HelloImpl.class.getClassLoader(), new Class[] { Hello.class }, handler);
 

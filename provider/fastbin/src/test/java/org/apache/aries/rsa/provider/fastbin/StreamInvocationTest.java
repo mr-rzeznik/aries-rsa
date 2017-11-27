@@ -29,6 +29,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -40,7 +41,6 @@ import java.util.concurrent.Future;
 import org.apache.aries.rsa.provider.fastbin.InvocationTest.HelloImpl;
 import org.apache.aries.rsa.provider.fastbin.api.SerializationStrategy;
 import org.apache.aries.rsa.provider.fastbin.io.ServerInvoker;
-import org.apache.aries.rsa.provider.fastbin.streams.StreamProvider;
 import org.apache.aries.rsa.provider.fastbin.tcp.ClientInvokerImpl;
 import org.apache.aries.rsa.provider.fastbin.tcp.ServerInvokerImpl;
 import org.fusesource.hawtdispatch.Dispatch;
@@ -78,9 +78,15 @@ public class StreamInvocationTest {
 
             public void unget()
             {}
+
+            @Override
+            public void validateMethodSignature(String intentName, Method method, String value) {
+
+            }
         }, TestServiceImpl.class.getClassLoader());
 
-        InvocationHandler handler = client.getProxy(server.getConnectAddress(), "service-id", TestServiceImpl.class.getClassLoader());
+        InvocationHandler handler = client.getProxy(server.getConnectAddress(), "service-id", TestServiceImpl.class.getClassLoader(),
+            null);
         testService = (TestService)Proxy.newProxyInstance(HelloImpl.class.getClassLoader(), new Class[]{TestService.class}, handler);
         Activator.INSTANCE = new Activator();
         Activator.INSTANCE.client = client;

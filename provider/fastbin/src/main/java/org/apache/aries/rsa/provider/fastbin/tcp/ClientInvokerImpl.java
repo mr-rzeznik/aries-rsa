@@ -30,6 +30,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
+import org.apache.aries.rsa.provider.fastbin.api.MethodSignatureIntent;
 import org.apache.aries.rsa.provider.fastbin.api.Dispatched;
 import org.apache.aries.rsa.provider.fastbin.api.ObjectSerializationStrategy;
 import org.apache.aries.rsa.provider.fastbin.api.Serialization;
@@ -130,8 +131,9 @@ public class ClientInvokerImpl implements ClientInvoker, Dispatched {
         }
     }
 
-    public InvocationHandler getProxy(String address, String service, ClassLoader classLoader) {
-        return new ProxyInvocationHandler(address, service, classLoader);
+    public InvocationHandler getProxy(String address, String service, ClassLoader classLoader,
+        Map<String, MethodSignatureIntent> serviceIntents) {
+        return new ProxyInvocationHandler(address, service, classLoader, serviceIntents);
     }
 
     protected void onCommand(TransportPool pool, Object data) {
@@ -170,7 +172,7 @@ public class ClientInvokerImpl implements ClientInvoker, Dispatched {
         }
     }
 
-    private MethodData getMethodData(Method method) throws IOException {
+    private MethodData getMethodData(Method method, Map<String, MethodSignatureIntent> intents) throws IOException {
         MethodData rc = null;
         synchronized (method_cache) {
             rc = method_cache.get(method);
@@ -178,6 +180,11 @@ public class ClientInvokerImpl implements ClientInvoker, Dispatched {
         if( rc==null ) {
             StringBuilder sb = new StringBuilder();
             sb.append(method.getName());
+            if(intents != null) {
+                intents.forEach((k, v) -> {
+                    sb.append(String.format(",intent.%s=%s", k, v.onMethodSignature(method)));
+                });
+            }
             sb.append(",");
             Class<?>[] types = method.getParameterTypes();
             for(int i=0; i < types.length; i++) {
@@ -237,7 +244,7 @@ public class ClientInvokerImpl implements ClientInvoker, Dispatched {
         baos.writeVarLong(correlation);
         writeBuffer(baos, service);
 
-        MethodData methodData = getMethodData(method);
+        MethodData methodData = getMethodData(method, handler.intents);
         writeBuffer(baos, methodData.signature);
 
         final ResponseFuture future = methodData.invocationStrategy.request(methodData.serializationStrategy, classLoader, method, args, baos);
@@ -284,12 +291,16 @@ public class ClientInvokerImpl implements ClientInvoker, Dispatched {
         final String address;
         final UTF8Buffer service;
         final ClassLoader classLoader;
+        private final Map<String, MethodSignatureIntent> intents;
         int lastRequestSize = 250;
 
-        public ProxyInvocationHandler(String address, String service, ClassLoader classLoader) {
+
+        public ProxyInvocationHandler(String address, String service, ClassLoader classLoader,
+            Map<String, MethodSignatureIntent> serviceIntents) {
             this.address = address;
             this.service = new UTF8Buffer(service);
             this.classLoader = classLoader;
+            intents = serviceIntents;
         }
 
         public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {

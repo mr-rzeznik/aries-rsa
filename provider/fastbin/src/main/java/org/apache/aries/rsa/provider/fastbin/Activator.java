@@ -34,6 +34,7 @@ public class Activator extends BaseActivator implements ManagedService {
     static Activator INSTANCE;
     FastBinProvider provider;
     SerializationStrategyListener serializationStrategyListener;
+    IntentListener intentListener;
     ClientInvoker client;
     ServerInvoker server;
 
@@ -60,6 +61,7 @@ public class Activator extends BaseActivator implements ManagedService {
         register(DistributionProvider.class, provider, props);
         //start serializationStrategyListener
         serializationStrategyListener = new SerializationStrategyListener(bundleContext, provider);
+        intentListener = new IntentListener(bundleContext, provider);
     }
 
     @Override
@@ -71,6 +73,13 @@ public class Activator extends BaseActivator implements ManagedService {
                 serializationStrategyListener.close();
             } finally {
                 serializationStrategyListener = null;
+            }
+        }
+        if (intentListener != null) {
+            try {
+                intentListener.close();
+            } finally {
+                intentListener = null;
             }
         }
         if (provider != null) {

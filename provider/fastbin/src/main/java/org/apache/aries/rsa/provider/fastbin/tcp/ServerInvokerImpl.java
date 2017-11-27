@@ -54,6 +54,8 @@ public class ServerInvokerImpl implements ServerInvoker, Dispatched {
 
     protected static final Logger LOGGER = LoggerFactory.getLogger(ServerInvokerImpl.class);
     static private final HashMap<String, Class> PRIMITIVE_TO_CLASS = new HashMap<String, Class>(8, 1.0F);
+    public static final String INTENT_PREFIX = "intent.";
+
     static {
         PRIMITIVE_TO_CLASS.put("Z", boolean.class);
         PRIMITIVE_TO_CLASS.put("B", byte.class);
@@ -77,11 +79,15 @@ public class ServerInvokerImpl implements ServerInvoker, Dispatched {
         private final SerializationStrategy serializationStrategy;
         final InvocationStrategy invocationStrategy;
         final Method method;
+        final Map<String, String> intentVals;
 
-        MethodData(InvocationStrategy invocationStrategy, SerializationStrategy serializationStrategy, Method method) {
+        MethodData(InvocationStrategy invocationStrategy,
+            SerializationStrategy serializationStrategy, Method method,
+            Map<String, String> _intentVals) {
             this.invocationStrategy = invocationStrategy;
             this.serializationStrategy = serializationStrategy;
             this.method = method;
+            intentVals = _intentVals;
         }
     }
 
@@ -105,9 +111,23 @@ public class ServerInvokerImpl implements ServerInvoker, Dispatched {
             if( rc == null ) {
                 String[] parts = data.utf8().toString().split(",");
                 String name = parts[0];
-                Class params[] = new Class[parts.length-1];
+                int intentNo = 0;
+                Map<String, String> intentVals = new HashMap<>();
+                for(int i=1 ; i < parts.length - 1; i++) {
+                    String el = parts[i];
+                    if(el.startsWith(INTENT_PREFIX) && el.length() > 7) {
+                        String[] vals = el.split("=");
+                        if(vals.length == 2) {
+                            intentVals.put(vals[0].substring(7), vals[1]);
+                        }
+                        intentNo++;
+                    } else {
+                        break;
+                    }
+                }
+                Class params[] = new Class[parts.length-(1+intentNo)];
                 for( int  i=0; i < params.length; i++) {
-                    params[i] = decodeClass(parts[i+1]);
+                    params[i] = decodeClass(parts[i+(1+intentNo)]);
                 }
                 Method method = clazz.getMethod(name, params);
 
@@ -123,10 +143,9 @@ public class ServerInvokerImpl implements ServerInvoker, Dispatched {
                     serializationStrategy = ObjectSerializationStrategy.INSTANCE;
                 }
 
-
                 final InvocationStrategy invocationStrategy = InvocationType.forMethod(method);
 
-                rc = new MethodData(invocationStrategy, serializationStrategy, method);
+                rc = new MethodData(invocationStrategy, serializationStrategy, method, intentVals);
                 method_cache.put(data, rc);
             }
             return rc;
@@ -211,6 +230,11 @@ public class ServerInvokerImpl implements ServerInvoker, Dispatched {
             @Override
             public void unget(){
                 // nothing to do
+            }
+
+            @Override
+            public void validateMethodSignature(String intentName, Method method, String value) {
+
             }
         }, getClass().getClassLoader());
 
@@ -339,7 +363,8 @@ public class ServerInvokerImpl implements ServerInvoker, Dispatched {
         }
 
         private SendTask(DataByteArrayInputStream bais, long correlation, Transport transport, String errorMessage) {
-            this(new ServiceException(errorMessage), bais, null, correlation, new MethodData(new BlockingInvocationStrategy(), ObjectSerializationStrategy.INSTANCE, null),transport);
+            this(new ServiceException(errorMessage), bais, null, correlation, new MethodData(new BlockingInvocationStrategy(), ObjectSerializationStrategy.INSTANCE, null,
+                null),transport);
         }
 
         public void run() {
@@ -355,8 +380,10 @@ public class ServerInvokerImpl implements ServerInvoker, Dispatched {
 
             // Lets decode the remaining args on the target's executor
             // to take cpu load off the
-
             ClassLoader loader = holder==null ? getClass().getClassLoader() : holder.loader;
+            if(holder != null && methodData.intentVals != null) {
+                methodData.intentVals.forEach((k, v) -> holder.factory.validateMethodSignature(k, methodData.method, v));
+            }
             methodData.invocationStrategy.service(methodData.serializationStrategy, loader, methodData.method, svc, bais, baos, new Runnable() {
                 public void run() {
                     if(holder!=null)
