@@ -19,16 +19,24 @@
 package org.apache.aries.rsa.provider.tcp;
 
 import static org.hamcrest.core.StringStartsWith.startsWith;
+import static org.junit.Assert.assertEquals;
 
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
+import java.net.SocketTimeoutException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.aries.rsa.provider.tcp.myservice.ExpectedTestException;
 import org.apache.aries.rsa.provider.tcp.myservice.MyService;
 import org.apache.aries.rsa.provider.tcp.myservice.MyServiceImpl;
 import org.apache.aries.rsa.spi.Endpoint;
@@ -39,9 +47,11 @@ import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.osgi.framework.BundleContext;
+import org.osgi.util.promise.Promise;
 
 public class TcpProviderTest {
 
+    private static final int TIMEOUT = 200;
     private static final int NUM_CALLS = 100;
     private static MyService myServiceProxy;
     private static Endpoint ep;
@@ -54,6 +64,7 @@ public class TcpProviderTest {
         EndpointHelper.addObjectClass(props, exportedInterfaces);
         props.put("aries.rsa.hostname", "localhost");
         props.put("aries.rsa.numThreads", "10");
+        props.put("osgi.basic.timeout", TIMEOUT);
         MyService myService = new MyServiceImpl();
         BundleContext bc = EasyMock.mock(BundleContext.class);
         ep = provider.exportService(myService, bc, props, exportedInterfaces);
@@ -64,27 +75,37 @@ public class TcpProviderTest {
                                                             exportedInterfaces, 
                                                             ep.description());
     }
+    
+    @Test
+    public void testCallTimeout() {
+        try {
+            myServiceProxy.callSlow(TIMEOUT + 100);
+            Assert.fail("Expecting timeout");
+        } catch (RuntimeException e) {
+            Assert.assertEquals(SocketTimeoutException.class, e.getCause().getClass());
+        }
+    }
 
     @Test
-    public void testPerf() throws IOException, InterruptedException {
+    public void testPerf() throws InterruptedException {
         runPerfTest(myServiceProxy);
         String msg = "test";
         String result = myServiceProxy.echo(msg);
         Assert.assertEquals(msg, result);
     }
     
-    @Test(expected=RuntimeException.class)
-    public void testCallException() throws IOException, InterruptedException {
-        myServiceProxy.call("throw exception");
+    @Test(expected=ExpectedTestException.class)
+    public void testCallException() {
+        myServiceProxy.callException();
     }
     
     @Test
-    public void testCall() throws IOException, InterruptedException {
+    public void testCall() {
         myServiceProxy.echo("test");
     }
     
     @Test
-    public void testCallOneway() throws IOException, InterruptedException {
+    public void testCallOneway() {
         myServiceProxy.callOneWay("test");
     }
     
@@ -96,7 +117,60 @@ public class TcpProviderTest {
         List<String> msgList = new ArrayList<String>();
         myServiceProxy.callWithList(msgList);
     }
+
+    @Test
+    public void testAsyncFuture() throws Exception {
+        Future<String> result = myServiceProxy.callAsyncFuture(100);
+        String answer = result.get(1, TimeUnit.SECONDS);
+        assertEquals("Finished", answer);
+    }
     
+    @Test(expected = ExpectedTestException.class)
+    public void testAsyncFutureException() throws Throwable {
+        Future<String> result = myServiceProxy.callAsyncFuture(-1);
+        try {
+            result.get();
+        } catch (ExecutionException e) {
+            throw e.getCause();
+        }
+    }
+    
+    @Test
+    public void testAsyncCompletionStage() throws Exception {
+        CompletionStage<String> result = myServiceProxy.callAsyncCompletionStage(100);
+        CompletableFuture<String> fresult = result.toCompletableFuture();
+        String answer = fresult.get(1, TimeUnit.SECONDS);
+        assertEquals("Finished", answer);
+    }
+    
+    @Test(expected = ExpectedTestException.class)
+    public void testAsyncCompletionStageException() throws Throwable {
+        CompletionStage<String> result = myServiceProxy.callAsyncCompletionStage(-1);
+        CompletableFuture<String> fresult = result.toCompletableFuture();
+        try {
+            fresult.get();
+        } catch (ExecutionException e) {
+            throw e.getCause();
+        }
+    }
+    
+    @Test
+    public void testAsyncPromise() throws Exception {
+        Promise<String> result = myServiceProxy.callAsyncPromise(100);
+        String answer = result.getValue();
+        assertEquals("Finished", answer);
+    }
+    
+    @Test(expected = ExpectedTestException.class)
+    public void testAsyncPromiseException() throws Throwable {
+        Promise<String> result = myServiceProxy.callAsyncPromise(-1);
+        try {
+            result.getValue();
+        } catch (InvocationTargetException e) {
+            throw e.getCause();
+        }
+    }
+
     @AfterClass
     public static void close() throws IOException {
         ep.close();
@@ -126,4 +200,5 @@ public class TcpProviderTest {
         long tps = NUM_CALLS * 1000 / (System.currentTimeMillis() - start);
         System.out.println(tps + " tps");
     }
+    
 }

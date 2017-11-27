@@ -18,31 +18,21 @@
  */
 package org.apache.aries.rsa.provider.tcp.myservice;
 
-import java.util.List;
-import java.util.concurrent.CompletionStage;
-import java.util.concurrent.Future;
-
-import javax.jws.Oneway;
-
-import org.osgi.util.promise.Promise;
-
-public interface MyService {
-    String echo(String msg);
-
-    void callSlow(int delay);
+public interface PrimitiveService {
     
-    void callException();
+    byte callByte(byte num);
     
-    // Oneway not yet supported
-    @Oneway
-    void callOneWay(String msg);
+    short callShort(short num);
+
+    int callInt(int num);
+
+    long callLong(long num);
     
-    void callWithList(List<String> msg);
+    float callFloat(float num);
     
-    Future<String> callAsyncFuture(int delay);
+    double callDouble(double num);
 
-    Promise<String> callAsyncPromise(int delay);
-
-    CompletionStage<String> callAsyncCompletionStage(int delay); 
-
+    boolean callBoolean(boolean bool);
+    
+    byte[] callByteAr(byte[] byteAr);
 }
