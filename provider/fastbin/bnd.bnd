@@ -3,4 +3,4 @@ Provide-Capability: osgi.remoteserviceadmin.distribution;\
 	configs:List<String>="aries.fastbin"; version:Version=1.0
 Export-Package: org.apache.aries.rsa.provider.fastbin.api;\
   uses:="org.fusesource.hawtbuf,org.fusesource.hawtdispatch";\
-  version="1.11.0"
+  version="1.12.0-SNAPSHOT"

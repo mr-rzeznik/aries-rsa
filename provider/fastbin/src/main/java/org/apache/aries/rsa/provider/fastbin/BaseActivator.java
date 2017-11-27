@@ -233,14 +233,7 @@ public class BaseActivator implements BundleActivator, Runnable {
     }
 
     protected void reconfigure() {
-		if (delayedReconfigure != null) {
-			if (!delayedReconfigure.isDone()) {
-				delayedReconfigure.cancel(true);
-			}
-			delayedReconfigure = null;
-		}
         if (scheduled.compareAndSet(false, true)) {
-			firstRun = true;
             executor.submit(this);
         }
     }

@@ -23,17 +23,17 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
+import org.osgi.util.promise.Promise;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -43,9 +43,11 @@ public class TCPServer implements Closeable, Runnable {
     private Object service;
     private boolean running;
     private ExecutorService executor;
+    private MethodInvoker invoker;
 
     public TCPServer(Object service, String localip, Integer port, int numThreads) {
         this.service = service;
+        this.invoker = new MethodInvoker(service);
         try {
             this.serverSocket = new ServerSocket(port);
         } catch (IOException e) {
@@ -66,14 +68,11 @@ public class TCPServer implements Closeable, Runnable {
         ClassLoader serviceCL = service.getClass().getClassLoader();
         while (running) {
             try (
-                Socket socket = this.serverSocket.accept();
-                ObjectInputStream ois = new LoaderObjectInputStream(socket.getInputStream(), serviceCL);
-                ObjectOutputStream objectOutput = new ObjectOutputStream(socket.getOutputStream())
+                    Socket socket = this.serverSocket.accept();
+                    ObjectInputStream ois = new LoaderObjectInputStream(socket.getInputStream(), serviceCL);
+                    ObjectOutputStream objectOutput = new ObjectOutputStream(socket.getOutputStream())
                 ) {
-                String methodName = (String)ois.readObject();
-                Object[] args = (Object[])ois.readObject();
-                Object result = invoke(methodName, args);
-                objectOutput.writeObject(result);
+                handleCall(ois, objectOutput);
             } catch (SocketException e) {
                 running = false;
             } catch (Exception e) {
@@ -82,56 +81,42 @@ public class TCPServer implements Closeable, Runnable {
         }
     }
 
-    private Object invoke(String methodName, Object[] args)
-        throws IllegalAccessException, InvocationTargetException, SecurityException {
-        Class<?>[] parameterTypesAr = getTypes(args);
-        Method method = null;
-        try {
-            method = getMethod(methodName, parameterTypesAr);
-            return method.invoke(service, args);
-        } catch (Throwable e) {
-            return e;
+    private void handleCall(ObjectInputStream ois, ObjectOutputStream objectOutput) throws Exception {
+        String methodName = (String)ois.readObject();
+        Object[] args = (Object[])ois.readObject();
+        Object result = invoker.invoke(methodName, args);
+        result = resolveAsnyc(result);
+        if (result instanceof InvocationTargetException) {
+            result = ((InvocationTargetException) result).getCause();
         }
+        objectOutput.writeObject(result);
     }
 
-    private Method getMethod(String methodName, Class<?>[] parameterTypesAr) {
-        try {
-            return service.getClass().getMethod(methodName, parameterTypesAr);
-        } catch (NoSuchMethodException e) {
-            Method[] methods = service.getClass().getMethods();
-            for (Method method : methods) {
-                if (!method.getName().equals(methodName)) {
-                    continue;
-                }
-                if (allParamsMatch(method.getParameterTypes(), parameterTypesAr)) {
-                    return method;
-                }
+    @SuppressWarnings("unchecked")
+    private Object resolveAsnyc(Object result) throws InterruptedException {
+        if (result instanceof Future) {
+            Future<Object> fu = (Future<Object>) result;
+            try {
+                result = fu.get();
+            } catch (ExecutionException e) {
+                result = e.getCause();
             }
-            throw new IllegalArgumentException(String.format("No method found that matches name %s, types %s", 
-                                                             methodName, Arrays.toString(parameterTypesAr)));
-        }
-    }
-
-    private boolean allParamsMatch(Class<?>[] methodParamTypes, Class<?>[] parameterTypesAr) {
-        int c = 0;
-        for (Class<?> type : methodParamTypes) {
-            if (!type.isAssignableFrom(parameterTypesAr[c])) {
-                return false;
+        } else if (result instanceof CompletionStage) {
+            CompletionStage<Object> fu = (CompletionStage<Object>) result;
+            try {
+                result = fu.toCompletableFuture().get();
+            } catch (ExecutionException e) {
+                result = e.getCause();
             }
-            c++;
-        }
-        return true;
-    }
-
-    private Class<?>[] getTypes(Object[] args) {
-        List<Class<?>> parameterTypes = new ArrayList<>();
-        if (args != null) {
-            for (Object arg : args) {
-                parameterTypes.add(arg.getClass());
+        } else if (result instanceof Promise) {
+            Promise<Object> fu = (Promise<Object>) result;  
+            try {
+                result = fu.getValue();
+            } catch (InvocationTargetException e) {
+                result = e.getCause();
             }
         }
-        Class<?>[] parameterTypesAr = parameterTypes.toArray(new Class[]{});
-        return parameterTypesAr;
+        return result;
     }
 
     @Override

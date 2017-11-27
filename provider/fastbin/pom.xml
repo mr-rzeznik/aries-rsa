@@ -3,19 +3,19 @@
     <parent>
         <groupId>org.apache.aries.rsa</groupId>
         <artifactId>org.apache.aries.rsa.parent</artifactId>
-        <version>1.11.0</version>
+        <version>1.12.0-SNAPSHOT</version>
         <relativePath>../../parent/pom.xml</relativePath>
     </parent>
 
     <groupId>org.apache.aries.rsa.provider</groupId>
     <artifactId>org.apache.aries.rsa.provider.fastbin</artifactId>
-    <version>1.11.0.KB</version>
+    <version>1.12.0.KB-SNAPSHOT</version>
     <packaging>bundle</packaging>
     <name>Aries Remote Service Admin provider FastBin</name>
     <description>Provider for Java Serialization over FastBin</description>
 
     <properties>
-        <parent.project.version>1.11.0</parent.project.version>
+        <parent.project.version>1.12.0-SNAPSHOT</parent.project.version>
         <topDirectoryLocation>../..</topDirectoryLocation>
     </properties>
 
@@ -100,6 +100,41 @@
                 </configuration>
             </plugin>
         </plugins>
+        <pluginManagement>
+        	<plugins>
+        		<!--This plugin's configuration is used to store Eclipse m2e settings only. It has no influence on the Maven build itself.-->
+        		<plugin>
+        			<groupId>org.eclipse.m2e</groupId>
+        			<artifactId>lifecycle-mapping</artifactId>
+        			<version>1.0.0</version>
+        			<configuration>
+        				<lifecycleMappingMetadata>
+        					<pluginExecutions>
+        						<pluginExecution>
+        							<pluginExecutionFilter>
+        								<groupId>
+        									org.fusesource.hawtbuf
+        								</groupId>
+        								<artifactId>
+        									hawtbuf-protoc
+        								</artifactId>
+        								<versionRange>
+        									[1.11,)
+        								</versionRange>
+        								<goals>
+        									<goal>compile</goal>
+        								</goals>
+        							</pluginExecutionFilter>
+        							<action>
+        								<ignore></ignore>
+        							</action>
+        						</pluginExecution>
+        					</pluginExecutions>
+        				</lifecycleMappingMetadata>
+        			</configuration>
+        		</plugin>
+        	</plugins>
+        </pluginManagement>
     </build>
 
 </project>
