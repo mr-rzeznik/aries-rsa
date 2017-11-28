@@ -178,7 +178,7 @@ public class ClientInvokerImpl implements ClientInvoker, Dispatched {
         synchronized (method_cache) {
             rc = method_cache.get(method);
         }
-        if( rc==null ) {
+        if( rc==null || intentsForceRebuild(intents, method)) {
             StringBuilder sb = new StringBuilder();
             sb.append(method.getName());
             if(intents != null) {
@@ -213,6 +213,15 @@ public class ClientInvokerImpl implements ClientInvoker, Dispatched {
             }
         }
         return rc;
+    }
+
+    private boolean intentsForceRebuild(Map<String, Intent> intents, Method method) {
+        return intents != null
+            && intents.values()
+                .stream()
+                .anyMatch(i ->
+                    i instanceof MethodLabelProvider
+                        && ((MethodLabelProvider) i).needsUpdate(method));
     }
 
     private void appendIntentString(String intentName, Intent intent, Method method, StringBuilder sb) {
