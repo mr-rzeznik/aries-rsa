@@ -66,12 +66,6 @@ public class TransportFailureTest {
                 }
                 public void unget() {
                 }
-
-                @Override
-                public void validateMethodSignature(String intentName, Method method,
-                    String value) {
-
-                }
             }, HelloImpl.class.getClassLoader());
 
 

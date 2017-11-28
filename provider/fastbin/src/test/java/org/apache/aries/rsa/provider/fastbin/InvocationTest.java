@@ -79,12 +79,6 @@ public class InvocationTest {
                 }
                 public void unget() {
                 }
-
-                @Override
-                public void validateMethodSignature(String intentName, Method method,
-                    String value) {
-
-                }
             }, HelloImpl.class.getClassLoader());
 
 
@@ -145,12 +139,6 @@ public class InvocationTest {
                 }
                 public void unget() {
                 }
-
-                @Override
-                public void validateMethodSignature(String intentName, Method method,
-                    String value) {
-
-                }
             }, Hello2Impl.class.getClassLoader());
 
 
@@ -200,12 +188,6 @@ public class InvocationTest {
                 }
                 public void unget() {
                 }
-
-                @Override
-                public void validateMethodSignature(String intentName, Method method,
-                    String value) {
-
-                }
             }, HelloImpl.class.getClassLoader());
 
             InvocationHandler handler = client.getProxy(server.getConnectAddress(), "service-id", HelloImpl.class.getClassLoader(),
@@ -241,10 +223,7 @@ public class InvocationTest {
     			public void unget() {
     			}
 
-            @Override
-            public void validateMethodSignature(String intentName, Method method, String value) {
-
-            }
+            
         }, HelloImpl.class.getClassLoader());
 
 
@@ -297,10 +276,7 @@ public class InvocationTest {
     			public void unget() {
     			}
 
-            @Override
-            public void validateMethodSignature(String intentName, Method method, String value) {
-
-            }
+            
         }, HelloImpl.class.getClassLoader());
 
 
@@ -372,10 +348,7 @@ public class InvocationTest {
     			public void unget() {
     			}
 
-            @Override
-            public void validateMethodSignature(String intentName, Method method, String value) {
-
-            }
+            
         }, HelloImpl.class.getClassLoader());
 
 
@@ -413,12 +386,6 @@ public class InvocationTest {
                     return helloImpl;
                 }
                 public void unget() {
-                }
-
-                @Override
-                public void validateMethodSignature(String intentName, Method method,
-                    String value) {
-
                 }
             }, HelloImpl.class.getClassLoader());
 
@@ -575,12 +542,6 @@ public class InvocationTest {
                     return helloImpl;
                 }
                 public void unget() {
-                }
-
-                @Override
-                public void validateMethodSignature(String intentName, Method method,
-                    String value) {
-
                 }
             }, HelloImpl.class.getClassLoader());
 

@@ -26,7 +26,7 @@ import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import org.apache.aries.rsa.provider.fastbin.api.MethodSignatureIntent;
+import org.apache.aries.rsa.provider.fastbin.api.Intent;
 import org.apache.aries.rsa.provider.fastbin.api.ObjectSerializationStrategy;
 import org.apache.aries.rsa.provider.fastbin.api.ProtobufSerializationStrategy;
 
@@ -60,7 +60,7 @@ public class FastBinProvider implements DistributionProvider {
 
     private ClientInvoker client;
     private ServerInvoker server;
-    private Map<String, MethodSignatureIntent> intents;
+    private Map<String, Intent> intents;
 
     public FastBinProvider(java.lang.String uri, java.lang.String exportedAddress, long timeout) throws Exception {
         this.uri = uri;
@@ -164,14 +164,6 @@ public class FastBinProvider implements DistributionProvider {
             }
             public void unget() {
             }
-
-            @Override
-            public void validateMethodSignature(String intentName, Method method, String value) {
-                MethodSignatureIntent intent = intents.get(intentName);
-                if(intent != null) {
-                    intent.validateMethodSignature(method, value);
-                }
-            }
         }, serviceO.getClass().getClassLoader());
 
         return new Endpoint() {
@@ -195,11 +187,11 @@ public class FastBinProvider implements DistributionProvider {
             throws IntentUnsatisfiedException {
 
         String address = (String) endpoint.getProperties().get(FASTBIN_ADDRESS);
-        Map<String, MethodSignatureIntent> serviceIntents = new HashMap<>();
-        String intentsLab = (String) endpoint.getProperties().get(MethodSignatureIntent.INTENT_TYPE);
+        Map<String, Intent> serviceIntents = new HashMap<>();
+        String intentsLab = (String) endpoint.getProperties().get(Intent.INTENT_TYPE);
         if(intentsLab != null && !intentsLab.isEmpty()) {
             for(String intentName : intentsLab.split(" ")) {
-                MethodSignatureIntent i = intents.get(intentName);
+                Intent i = intents.get(intentName);
                 if(i == null) {
                     throw new IntentUnsatisfiedException("Unsatisfied intent: " + intentName);
                 }
@@ -210,17 +202,13 @@ public class FastBinProvider implements DistributionProvider {
         return Proxy.newProxyInstance(cl, interfaces, handler);
     }
 
-    public void registerMethodSignatureIntent(String intentName, MethodSignatureIntent service) {
+    public void registerIntent(String intentName, Intent service) {
         intents.put(intentName, service);
-//        if(server != null) {
-//            server.addIntent(intentName, service);
-//        }
+        server.addIntent(intentName, service);
     }
 
-    public void unregisterMethodSignatureIntent(String intentName) {
+    public void unregisterIntent(String intentName) {
         intents.remove(intentName);
-//        if(server != null) {
-//            server.removeIntent(intentName);
-//        }
+        server.removeIntent(intentName);
     }
 }

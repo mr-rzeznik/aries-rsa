@@ -19,6 +19,7 @@
 package org.apache.aries.rsa.provider.fastbin.io;
 
 import java.lang.reflect.Method;
+import org.apache.aries.rsa.provider.fastbin.api.Intent;
 import org.apache.aries.rsa.provider.fastbin.streams.StreamProvider;
 
 public interface ServerInvoker extends Service {
@@ -31,12 +32,14 @@ public interface ServerInvoker extends Service {
 
     StreamProvider getStreamProvider();
 
-  public interface ServiceFactory {
+  void addIntent(String intentName, Intent intent);
+
+  void removeIntent(String intentName);
+
+  interface ServiceFactory {
 
         Object get();
 
         void unget();
-
-        void validateMethodSignature(String intentName, Method method, String value);
-    }
+  }
 }

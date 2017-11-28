@@ -79,10 +79,7 @@ public class FutureInvocationTest
             public void unget()
             {}
 
-            @Override
-            public void validateMethodSignature(String intentName, Method method, String value) {
-
-            }
+            
         }, TestServiceImpl.class.getClassLoader());
 
         InvocationHandler handler = client.getProxy(server.getConnectAddress(), "service-id", TestServiceImpl.class.getClassLoader(),

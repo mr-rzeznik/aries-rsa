@@ -18,7 +18,7 @@ package org.apache.aries.rsa.provider.fastbin;
 
 import java.util.HashMap;
 import java.util.Map;
-import org.apache.aries.rsa.provider.fastbin.api.MethodSignatureIntent;
+import org.apache.aries.rsa.provider.fastbin.api.Intent;
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.InvalidSyntaxException;
 import org.osgi.framework.ServiceEvent;
@@ -33,17 +33,17 @@ import org.slf4j.LoggerFactory;
 public class IntentListener implements ServiceListener {
 
     protected static final Logger LOG = LoggerFactory.getLogger(IntentListener.class);
-    public static final String FILTER = "(objectClass=" + MethodSignatureIntent.class.getName() + ")";
+    public static final String FILTER = "(objectClass=" + Intent.class.getName() + ")";
 
     private final BundleContext bundleContext;
     private final FastBinProvider fastBinProvider;
-    private final Map<ServiceReference<MethodSignatureIntent>, MethodSignatureIntent> serviceRefsSet;
+    private final Map<ServiceReference<Intent>, Intent> serviceRefsSet;
 
     public IntentListener(BundleContext bundleContex, FastBinProvider fastBinProvider) throws InvalidSyntaxException {
         this.bundleContext = bundleContex;
         this.fastBinProvider = fastBinProvider;
         this.serviceRefsSet = new HashMap<>();
-        for (ServiceReference<MethodSignatureIntent> serviceRef: this.bundleContext.getServiceReferences(MethodSignatureIntent.class, null)) {
+        for (ServiceReference<Intent> serviceRef: this.bundleContext.getServiceReferences(Intent.class, null)) {
             register(serviceRef);
         }
         this.bundleContext.addServiceListener(this, FILTER);
@@ -52,33 +52,33 @@ public class IntentListener implements ServiceListener {
     @Override
     public void serviceChanged(ServiceEvent event) {
         if (event.getType() == ServiceEvent.REGISTERED) {
-            register((ServiceReference<MethodSignatureIntent>)event.getServiceReference());
+            register((ServiceReference<Intent>)event.getServiceReference());
         } else if (event.getType() == ServiceEvent.UNREGISTERING) {
-            unregister((ServiceReference<MethodSignatureIntent>)event.getServiceReference());
+            unregister((ServiceReference<Intent>)event.getServiceReference());
         }
     }
     
-    private synchronized void register(ServiceReference<MethodSignatureIntent> serviceRef) {
-        String intentName = (String) serviceRef.getProperty(MethodSignatureIntent.INTENT_NAME);
+    private synchronized void register(ServiceReference<Intent> serviceRef) {
+        String intentName = (String) serviceRef.getProperty(Intent.INTENT_NAME);
         if(intentName == null || intentName.isEmpty()) {
-            LOG.info("Ignoring method signature intent[{}] with null/empty name.", serviceRef.getClass());
+            LOG.info("Ignoring intent[{}] with null/empty name.", serviceRef.getClass());
         }
         if (serviceRefsSet.containsKey(serviceRef)) {
             unregister(serviceRef);
         }
-        MethodSignatureIntent service = bundleContext.getService(serviceRef);
+        Intent service = bundleContext.getService(serviceRef);
         if (service == null) return; //if not available
         serviceRefsSet.put(serviceRef, service);
-        fastBinProvider.registerMethodSignatureIntent(intentName, service);
-        LOG.debug("Registered MethodSignatureIntent, name[{}], cls[{}].", intentName, service.getClass().getName());
+        fastBinProvider.registerIntent(intentName, service);
+        LOG.debug("Registered Intent, name[{}], cls[{}].", intentName, service.getClass().getName());
     }
     
-    private synchronized void unregister(ServiceReference<MethodSignatureIntent> serviceRef) {
+    private synchronized void unregister(ServiceReference<Intent> serviceRef) {
         if (!serviceRefsSet.containsKey(serviceRef)) return;
-        String intentName = (String) serviceRef.getProperty(MethodSignatureIntent.INTENT_NAME);
-        fastBinProvider.unregisterMethodSignatureIntent(intentName);
+        String intentName = (String) serviceRef.getProperty(Intent.INTENT_NAME);
+        fastBinProvider.unregisterIntent(intentName);
         bundleContext.ungetService(serviceRef);
-        LOG.debug("Registered MethodSignatureIntent, name[{}]", intentName);
+        LOG.debug("Registered Intent, name[{}]", intentName);
     }
     
     public synchronized void close() {

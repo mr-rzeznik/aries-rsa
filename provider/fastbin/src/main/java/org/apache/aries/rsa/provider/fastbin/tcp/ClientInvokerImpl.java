@@ -30,8 +30,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
-import org.apache.aries.rsa.provider.fastbin.api.MethodSignatureIntent;
+import org.apache.aries.rsa.provider.fastbin.api.Intent;
 import org.apache.aries.rsa.provider.fastbin.api.Dispatched;
+import org.apache.aries.rsa.provider.fastbin.api.MethodLabelProvider;
 import org.apache.aries.rsa.provider.fastbin.api.ObjectSerializationStrategy;
 import org.apache.aries.rsa.provider.fastbin.api.Serialization;
 import org.apache.aries.rsa.provider.fastbin.api.SerializationStrategy;
@@ -132,7 +133,7 @@ public class ClientInvokerImpl implements ClientInvoker, Dispatched {
     }
 
     public InvocationHandler getProxy(String address, String service, ClassLoader classLoader,
-        Map<String, MethodSignatureIntent> serviceIntents) {
+        Map<String, Intent> serviceIntents) {
         return new ProxyInvocationHandler(address, service, classLoader, serviceIntents);
     }
 
@@ -172,7 +173,7 @@ public class ClientInvokerImpl implements ClientInvoker, Dispatched {
         }
     }
 
-    private MethodData getMethodData(Method method, Map<String, MethodSignatureIntent> intents) throws IOException {
+    private MethodData getMethodData(Method method, Map<String, Intent> intents) throws IOException {
         MethodData rc = null;
         synchronized (method_cache) {
             rc = method_cache.get(method);
@@ -181,9 +182,7 @@ public class ClientInvokerImpl implements ClientInvoker, Dispatched {
             StringBuilder sb = new StringBuilder();
             sb.append(method.getName());
             if(intents != null) {
-                intents.forEach((k, v) -> {
-                    sb.append(String.format(",intent.%s=%s", k, v.onMethodSignature(method)));
-                });
+                intents.forEach((k, v) -> appendIntentString(k, v, method, sb));
             }
             sb.append(",");
             Class<?>[] types = method.getParameterTypes();
@@ -214,6 +213,15 @@ public class ClientInvokerImpl implements ClientInvoker, Dispatched {
             }
         }
         return rc;
+    }
+
+    private void appendIntentString(String intentName, Intent intent, Method method, StringBuilder sb) {
+        if(intent != null && intent instanceof MethodLabelProvider) {
+            String value = ((MethodLabelProvider) intent).provideLabel(method);
+            if(value != null) {
+                sb.append(String.format(",intent.%s=%s", intentName,  value));
+            }
+        }
     }
 
     String encodeClassName(Class<?> type) {
@@ -291,12 +299,12 @@ public class ClientInvokerImpl implements ClientInvoker, Dispatched {
         final String address;
         final UTF8Buffer service;
         final ClassLoader classLoader;
-        private final Map<String, MethodSignatureIntent> intents;
+        private final Map<String, Intent> intents;
         int lastRequestSize = 250;
 
 
         public ProxyInvocationHandler(String address, String service, ClassLoader classLoader,
-            Map<String, MethodSignatureIntent> serviceIntents) {
+            Map<String, Intent> serviceIntents) {
             this.address = address;
             this.service = new UTF8Buffer(service);
             this.classLoader = classLoader;

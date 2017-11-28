@@ -30,6 +30,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import org.apache.aries.rsa.provider.fastbin.api.Dispatched;
+import org.apache.aries.rsa.provider.fastbin.api.Intent;
+import org.apache.aries.rsa.provider.fastbin.api.MethodLabelValidator;
 import org.apache.aries.rsa.provider.fastbin.api.ObjectSerializationStrategy;
 import org.apache.aries.rsa.provider.fastbin.api.Serialization;
 import org.apache.aries.rsa.provider.fastbin.api.SerializationStrategy;
@@ -55,6 +57,7 @@ public class ServerInvokerImpl implements ServerInvoker, Dispatched {
     protected static final Logger LOGGER = LoggerFactory.getLogger(ServerInvokerImpl.class);
     static private final HashMap<String, Class> PRIMITIVE_TO_CLASS = new HashMap<String, Class>(8, 1.0F);
     public static final String INTENT_PREFIX = "intent.";
+    private final Map<String, MethodLabelValidator> intents;
 
     static {
         PRIMITIVE_TO_CLASS.put("Z", boolean.class);
@@ -173,6 +176,7 @@ public class ServerInvokerImpl implements ServerInvoker, Dispatched {
         this.server = new TcpTransportFactory().bind(address);
         this.server.setDispatchQueue(queue);
         this.server.setAcceptListener(new InvokerAcceptListener());
+        intents = new HashMap<>();
     }
 
     public InetSocketAddress getSocketAddress() {
@@ -191,6 +195,18 @@ public class ServerInvokerImpl implements ServerInvoker, Dispatched {
     @Override
     public StreamProvider getStreamProvider() {
         return streamProvider;
+    }
+
+    @Override
+    public void addIntent(String intentName, Intent intent) {
+        if(intent instanceof MethodLabelValidator) {
+            intents.put(intentName, (MethodLabelValidator) intent);
+        }
+    }
+
+    @Override
+    public void removeIntent(String intentName) {
+        intents.remove(intentName);
     }
 
     public void registerService(final String id, final ServiceFactory service, final ClassLoader classLoader) {
@@ -230,11 +246,6 @@ public class ServerInvokerImpl implements ServerInvoker, Dispatched {
             @Override
             public void unget(){
                 // nothing to do
-            }
-
-            @Override
-            public void validateMethodSignature(String intentName, Method method, String value) {
-
             }
         }, getClass().getClassLoader());
 
@@ -382,7 +393,7 @@ public class ServerInvokerImpl implements ServerInvoker, Dispatched {
             // to take cpu load off the
             ClassLoader loader = holder==null ? getClass().getClassLoader() : holder.loader;
             if(holder != null && methodData.intentVals != null) {
-                methodData.intentVals.forEach((k, v) -> holder.factory.validateMethodSignature(k, methodData.method, v));
+                methodData.intentVals.forEach((k, v) -> validateMethodSignature(methodData.method, k, v));
             }
             methodData.invocationStrategy.service(methodData.serializationStrategy, loader, methodData.method, svc, bais, baos, new Runnable() {
                 public void run() {
@@ -401,6 +412,13 @@ public class ServerInvokerImpl implements ServerInvoker, Dispatched {
                     });
                 }
             });
+        }
+    }
+
+    private void validateMethodSignature(Method method, String intentName, String value) {
+        MethodLabelValidator intent = intents.get(intentName);
+        if(intent != null) {
+            intent.validateMethodLabel(method, value);
         }
     }
 
