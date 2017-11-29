@@ -20,6 +20,7 @@ package org.apache.aries.rsa.provider.fastbin;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.nio.channels.SocketChannel;
 import java.util.HashMap;
@@ -68,7 +69,8 @@ public class TransportFailureTest {
             }, HelloImpl.class.getClassLoader());
 
 
-            InvocationHandler handler = client.getProxy(server.getConnectAddress(), "service-id", HelloImpl.class.getClassLoader());
+            InvocationHandler handler = client.getProxy(server.getConnectAddress(), "service-id", HelloImpl.class.getClassLoader(),
+                null);
             Hello hello  = (Hello) Proxy.newProxyInstance(HelloImpl.class.getClassLoader(), new Class[]{Hello.class}, handler);
 
             AsyncCallbackFuture<String> future1 = new AsyncCallbackFuture<String>();

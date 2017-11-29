@@ -30,7 +30,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
+import org.apache.aries.rsa.provider.fastbin.api.Intent;
 import org.apache.aries.rsa.provider.fastbin.api.Dispatched;
+import org.apache.aries.rsa.provider.fastbin.api.MethodLabelProvider;
 import org.apache.aries.rsa.provider.fastbin.api.ObjectSerializationStrategy;
 import org.apache.aries.rsa.provider.fastbin.api.Serialization;
 import org.apache.aries.rsa.provider.fastbin.api.SerializationStrategy;
@@ -130,8 +132,9 @@ public class ClientInvokerImpl implements ClientInvoker, Dispatched {
         }
     }
 
-    public InvocationHandler getProxy(String address, String service, ClassLoader classLoader) {
-        return new ProxyInvocationHandler(address, service, classLoader);
+    public InvocationHandler getProxy(String address, String service, ClassLoader classLoader,
+        Map<String, Intent> serviceIntents) {
+        return new ProxyInvocationHandler(address, service, classLoader, serviceIntents);
     }
 
     protected void onCommand(TransportPool pool, Object data) {
@@ -170,14 +173,17 @@ public class ClientInvokerImpl implements ClientInvoker, Dispatched {
         }
     }
 
-    private MethodData getMethodData(Method method) throws IOException {
+    private MethodData getMethodData(Method method, Map<String, Intent> intents) throws IOException {
         MethodData rc = null;
         synchronized (method_cache) {
             rc = method_cache.get(method);
         }
-        if( rc==null ) {
+        if( rc==null || intentsForceRebuild(intents, method)) {
             StringBuilder sb = new StringBuilder();
             sb.append(method.getName());
+            if(intents != null) {
+                intents.forEach((k, v) -> appendIntentString(k, v, method, sb));
+            }
             sb.append(",");
             Class<?>[] types = method.getParameterTypes();
             for(int i=0; i < types.length; i++) {
@@ -209,6 +215,24 @@ public class ClientInvokerImpl implements ClientInvoker, Dispatched {
         return rc;
     }
 
+    private boolean intentsForceRebuild(Map<String, Intent> intents, Method method) {
+        return intents != null
+            && intents.values()
+                .stream()
+                .anyMatch(i ->
+                    i instanceof MethodLabelProvider
+                        && ((MethodLabelProvider) i).needsUpdate(method));
+    }
+
+    private void appendIntentString(String intentName, Intent intent, Method method, StringBuilder sb) {
+        if(intent != null && intent instanceof MethodLabelProvider) {
+            String value = ((MethodLabelProvider) intent).provideLabel(method);
+            if(value != null) {
+                sb.append(String.format(",intent.%s=%s", intentName,  value));
+            }
+        }
+    }
+
     String encodeClassName(Class<?> type) {
         if( type.getComponentType()!=null ) {
             return "["+ encodeClassName(type.getComponentType());
@@ -237,7 +261,7 @@ public class ClientInvokerImpl implements ClientInvoker, Dispatched {
         baos.writeVarLong(correlation);
         writeBuffer(baos, service);
 
-        MethodData methodData = getMethodData(method);
+        MethodData methodData = getMethodData(method, handler.intents);
         writeBuffer(baos, methodData.signature);
 
         final ResponseFuture future = methodData.invocationStrategy.request(methodData.serializationStrategy, classLoader, method, args, baos);
@@ -284,12 +308,16 @@ public class ClientInvokerImpl implements ClientInvoker, Dispatched {
         final String address;
         final UTF8Buffer service;
         final ClassLoader classLoader;
+        private final Map<String, Intent> intents;
         int lastRequestSize = 250;
 
-        public ProxyInvocationHandler(String address, String service, ClassLoader classLoader) {
+
+        public ProxyInvocationHandler(String address, String service, ClassLoader classLoader,
+            Map<String, Intent> serviceIntents) {
             this.address = address;
             this.service = new UTF8Buffer(service);
             this.classLoader = classLoader;
+            intents = serviceIntents;
         }
 
         public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
