@@ -19,21 +19,22 @@
 package org.apache.aries.rsa.discovery.zookeeper;
 
 import java.io.IOException;
+import java.net.Socket;
 import java.util.Dictionary;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.apache.aries.rsa.discovery.zookeeper.publish.PublishingEndpointListenerFactory;
+import org.apache.aries.rsa.discovery.zookeeper.publish.PublishingEndpointListener;
+import org.apache.aries.rsa.discovery.zookeeper.repository.ZookeeperEndpointRepository;
 import org.apache.aries.rsa.discovery.zookeeper.subscribe.EndpointListenerTracker;
-import org.apache.aries.rsa.discovery.zookeeper.subscribe.InterfaceMonitorManager;
+import org.apache.aries.rsa.discovery.zookeeper.subscribe.InterestManager;
 import org.apache.zookeeper.WatchedEvent;
 import org.apache.zookeeper.Watcher;
 import org.apache.zookeeper.ZooKeeper;
 import org.osgi.framework.BundleContext;
 import org.osgi.service.cm.ConfigurationException;
 import org.osgi.service.cm.ManagedService;
-import org.osgi.service.remoteserviceadmin.EndpointListener;
 import org.osgi.util.tracker.ServiceTracker;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -46,34 +47,41 @@ public class ZooKeeperDiscovery implements Watcher, ManagedService {
 
     private final BundleContext bctx;
 
-    private PublishingEndpointListenerFactory endpointListenerFactory;
-    private ServiceTracker<EndpointListener, EndpointListener> endpointListenerTracker;
-    private InterfaceMonitorManager imManager;
+    private PublishingEndpointListener endpointListener;
+    private ServiceTracker<?, ?> endpointListenerTracker;
+    private InterestManager imManager;
     private ZooKeeper zkClient;
     private boolean closed;
     private boolean started;
 
     private Dictionary<String, ?> curConfiguration;
 
+    private ZookeeperEndpointRepository repository;
+
     public ZooKeeperDiscovery(BundleContext bctx) {
         this.bctx = bctx;
     }
 
-    public synchronized void updated(Dictionary<String, ?> configuration) throws ConfigurationException {
+    public synchronized void updated(final Dictionary<String, ?> configuration) throws ConfigurationException {
         LOG.debug("Received configuration update for Zookeeper Discovery: {}", configuration);
         // make changes only if config actually changed, to prevent unnecessary ZooKeeper reconnections
-        if (!ZooKeeperDiscovery.toMap(configuration).equals(ZooKeeperDiscovery.toMap(curConfiguration))) {
+        if (!toMap(configuration).equals(toMap(curConfiguration))) {
             stop(false);
             curConfiguration = configuration;
             // config is null if it doesn't exist, is being deleted or has not yet been loaded
             // in which case we just stop running
-            if (!closed && configuration != null) {
-                try {
-                    createZookeeper(configuration);
-                } catch (IOException e) {
-                    throw new ConfigurationException(null, "Error starting zookeeper client", e);
-                }
+            if (closed || configuration == null) {
+                return;
             }
+            new Thread(new Runnable() {
+                public void run() {
+                    try {
+                        createZookeeper(configuration);
+                    } catch (IOException e) {
+                        LOG.error("Error starting zookeeper client", e);
+                    }
+                }
+            }).start();
         }
     }
 
@@ -87,9 +95,11 @@ public class ZooKeeperDiscovery implements Watcher, ManagedService {
             return;
         }
         LOG.debug("starting ZookeeperDiscovery");
-        endpointListenerFactory = new PublishingEndpointListenerFactory(zkClient, bctx);
-        endpointListenerFactory.start();
-        imManager = new InterfaceMonitorManager(bctx, zkClient);
+        repository = new ZookeeperEndpointRepository(zkClient);
+        endpointListener = new PublishingEndpointListener(repository);
+        endpointListener.start(bctx);
+        imManager = new InterestManager(repository);
+        repository.addListener(imManager);
         endpointListenerTracker = new EndpointListenerTracker(bctx, imManager);
         endpointListenerTracker.open();
         started = true;
@@ -101,8 +111,8 @@ public class ZooKeeperDiscovery implements Watcher, ManagedService {
         }
         started = false;
         closed |= close;
-        if (endpointListenerFactory != null) {
-            endpointListenerFactory.stop();
+        if (endpointListener != null) {
+            endpointListener.stop();
         }
         if (endpointListenerTracker != null) {
             endpointListenerTracker.close();
@@ -156,7 +166,26 @@ public class ZooKeeperDiscovery implements Watcher, ManagedService {
         String host = (String)getWithDefault(config, "zookeeper.host", "localhost");
         String port = (String)getWithDefault(config, "zookeeper.port", "2181");
         int timeout = Integer.parseInt((String)getWithDefault(config, "zookeeper.timeout", "3000"));
+        waitPort(host, Integer.parseInt(port));
         zkClient = createZooKeeper(host, port, timeout);
+    }
+
+    private void waitPort(String host, int port) {
+        long start = System.currentTimeMillis();
+        while (System.currentTimeMillis() - start < 2000) {
+            try (Socket socket = new Socket(host, port)) {
+                return;
+            } catch (IOException e) {
+                safeSleep();
+            }
+        }
+    }
+
+    private void safeSleep() {
+        try {
+            Thread.sleep(100);
+        } catch (InterruptedException e1) {
+        }
     }
     
     public Object getWithDefault(Dictionary<String, ?> config, String key, Object defaultValue) {

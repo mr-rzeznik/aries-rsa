@@ -39,6 +39,7 @@ public class MethodInvoker {
         this.primTypes.put(Float.TYPE, Float.class);
         this.primTypes.put(Double.TYPE, Double.class);
         this.primTypes.put(Boolean.TYPE, Boolean.class);
+        this.primTypes.put(Character.TYPE, Character.class);
     }
     
     public Object invoke(String methodName, Object[] args) {
@@ -87,7 +88,7 @@ public class MethodInvoker {
         }
         return type.isAssignableFrom(paramType);
     }
-
+    
     private Class<?>[] getTypes(Object[] args) {
         List<Class<?>> parameterTypes = new ArrayList<>();
         if (args != null) {

@@ -18,6 +18,8 @@
  */
 package org.apache.aries.rsa.core;
 
+import java.security.AccessController;
+import java.security.PrivilegedAction;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -32,18 +34,19 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.aries.rsa.core.event.EventProducer;
 import org.apache.aries.rsa.spi.DistributionProvider;
 import org.apache.aries.rsa.spi.Endpoint;
 import org.apache.aries.rsa.util.EndpointHelper;
 import org.apache.aries.rsa.util.StringPlus;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
-import org.osgi.framework.InvalidSyntaxException;
 import org.osgi.framework.ServiceEvent;
 import org.osgi.framework.ServiceListener;
 import org.osgi.framework.ServiceReference;
 import org.osgi.framework.ServiceRegistration;
 import org.osgi.service.remoteserviceadmin.EndpointDescription;
+import org.osgi.service.remoteserviceadmin.EndpointPermission;
 import org.osgi.service.remoteserviceadmin.ExportReference;
 import org.osgi.service.remoteserviceadmin.ExportRegistration;
 import org.osgi.service.remoteserviceadmin.ImportReference;
@@ -59,24 +62,44 @@ public class RemoteServiceAdminCore implements RemoteServiceAdmin {
 
     private final Map<Map<String, Object>, Collection<ExportRegistration>> exportedServices
         = new LinkedHashMap<Map<String, Object>, Collection<ExportRegistration>>();
-    private final Map<EndpointDescription, Collection<ImportRegistrationImpl>> importedServices
-        = new LinkedHashMap<EndpointDescription, Collection<ImportRegistrationImpl>>();
+    private final Map<EndpointDescription, Collection<ImportRegistration>> importedServices
+        = new LinkedHashMap<EndpointDescription, Collection<ImportRegistration>>();
 
     // Is stored in exportedServices while the export is in progress as a marker
     private final List<ExportRegistration> exportInProgress = Collections.emptyList();
 
     private final BundleContext bctx;
     private final EventProducer eventProducer;
-    private final ServiceListener exportedServiceListener;
+    private ServiceListener exportedServiceListener;
     private DistributionProvider provider;
     private BundleContext apictx;
+    private PackageUtil packageUtil;
+    private CloseHandler closeHandler;
 
-    public RemoteServiceAdminCore(BundleContext context, BundleContext apiContext, DistributionProvider provider) {
+    public RemoteServiceAdminCore(BundleContext context, 
+            BundleContext apiContext, 
+            EventProducer eventProducer,
+            DistributionProvider provider,
+            PackageUtil packageUtil) {
         this.bctx = context;
         this.apictx = apiContext;
-        this.eventProducer = new EventProducer(bctx);
+        this.eventProducer = eventProducer;
         this.provider = provider;
-        // listen for exported services being unregistered so we can close the export
+        this.packageUtil = packageUtil;
+        this.closeHandler = new CloseHandler() {
+            public void onClose(ExportRegistration exportReg) {
+                removeExportRegistration(exportReg);
+            }
+
+            public void onClose(ImportRegistration importReg) {
+                removeImportRegistration(importReg);
+            }
+        };
+        createServiceListener();
+    }
+    
+    // listen for exported services being unregistered so we can close the export
+    protected void createServiceListener() {
         this.exportedServiceListener = new ServiceListener() {
             public void serviceChanged(ServiceEvent event) {
                 if (event.getType() == ServiceEvent.UNREGISTERING) {
@@ -84,12 +107,7 @@ public class RemoteServiceAdminCore implements RemoteServiceAdmin {
                 }
             }
         };
-        try {
-            String filter = "(" + RemoteConstants.SERVICE_EXPORTED_INTERFACES + "=*)";
-            context.addServiceListener(exportedServiceListener, filter);
-        } catch (InvalidSyntaxException ise) {
-            throw new RuntimeException(ise); // can never happen
-        }
+        this.bctx.addServiceListener(exportedServiceListener);
     }
 
     @Override
@@ -195,35 +213,51 @@ public class RemoteServiceAdminCore implements RemoteServiceAdmin {
         return null;
     }
 
-    private ExportRegistration exportService(List<String> interfaceNames,
-            ServiceReference<?> serviceReference, Map<String, Object> serviceProperties) {
+    private ExportRegistration exportService(
+            final List<String> interfaceNames,
+            final ServiceReference<?> serviceReference, 
+            final Map<String, Object> serviceProperties) {
         LOG.info("interfaces selected for export: " + interfaceNames);
+
         try {
-            Class<?>[] interfaces = getInterfaces(interfaceNames, serviceReference.getBundle());
-            Map<String, Object> eprops = createEndpointProps(serviceProperties, interfaces);
-            Bundle bundle = serviceReference.getBundle();
-            if (bundle == null) {
+            checkPermission(new EndpointPermission("*", EndpointPermission.EXPORT));
+            Bundle serviceBundle = serviceReference.getBundle();
+            if (serviceBundle == null) {
                 throw new IllegalStateException("Service is already unregistered");
             }
-            BundleContext serviceContext = bundle.getBundleContext();
+            final BundleContext serviceContext = serviceBundle.getBundleContext();
+            final Object serviceO = serviceContext.getService(serviceReference);
+            final Class<?>[] interfaces = getInterfaces(serviceO, interfaceNames);
+            final Map<String, Object> eprops = createEndpointProps(serviceProperties, interfaces);
             
             // TODO unget service when export is destroyed
-            Object serviceO = serviceContext.getService(serviceReference);
-            Endpoint endpoint = provider.exportService(serviceO, serviceContext, eprops, interfaces);
+            Endpoint endpoint = AccessController.doPrivileged(new PrivilegedAction<Endpoint>() {
+                public Endpoint run() {
+                    return provider.exportService(serviceO, serviceContext, eprops, interfaces);
+                }
+            });
             if (endpoint == null) {
                 return null;
             }
-            return new ExportRegistrationImpl(serviceReference, endpoint, this);
+            return new ExportRegistrationImpl(serviceReference, endpoint, closeHandler, eventProducer);
+        } catch (IllegalArgumentException e) {
+            // TCK expects this for garbage input
+            throw e;
         } catch (Exception e) {
-            return new ExportRegistrationImpl(this, e);
+            return new ExportRegistrationImpl(e, closeHandler, eventProducer);
         }
     }
     
-    private Class<?>[] getInterfaces(List<String> interfaceNames, 
-                                         Bundle serviceBundle) throws ClassNotFoundException {
+    private Class<?>[] getInterfaces(
+            Object serviceO, 
+            List<String> interfaceNames
+            ) throws ClassNotFoundException {
         List<Class<?>> interfaces = new ArrayList<>();
-        for (String interfaceName : interfaceNames) {
-            interfaces.add(serviceBundle.loadClass(interfaceName));
+        Class<?>[] allInterfaces = serviceO.getClass().getInterfaces();
+        for (Class<?> iface : allInterfaces) {
+            if (interfaceNames.contains(iface.getName())) {
+                interfaces.add(iface);
+            }
         }
         return interfaces.toArray(new Class[]{});
     }
@@ -328,7 +362,9 @@ public class RemoteServiceAdminCore implements RemoteServiceAdmin {
             List<ExportReference> ers = new ArrayList<ExportReference>();
             for (Collection<ExportRegistration> exportRegistrations : exportedServices.values()) {
                 for (ExportRegistration er : exportRegistrations) {
-                    ers.add(new ExportReferenceImpl(er.getExportReference()));
+                    if (er.getExportReference() != null) {
+                        ers.add(new ExportReferenceImpl(er.getExportReference()));
+                    }
                 }
             }
             return Collections.unmodifiableCollection(ers);
@@ -339,8 +375,8 @@ public class RemoteServiceAdminCore implements RemoteServiceAdmin {
     public Collection<ImportReference> getImportedEndpoints() {
         synchronized (importedServices) {
             List<ImportReference> irs = new ArrayList<ImportReference>();
-            for (Collection<ImportRegistrationImpl> irl : importedServices.values()) {
-                for (ImportRegistrationImpl impl : irl) {
+            for (Collection<ImportRegistration> irl : importedServices.values()) {
+                for (ImportRegistration impl : irl) {
                     irs.add(impl.getImportReference());
                 }
             }
@@ -356,11 +392,11 @@ public class RemoteServiceAdminCore implements RemoteServiceAdmin {
         LOG.debug("importService() Endpoint: {}", endpoint.getProperties());
 
         synchronized (importedServices) {
-            Collection<ImportRegistrationImpl> imRegs = importedServices.get(endpoint);
+            Collection<ImportRegistration> imRegs = importedServices.get(endpoint);
             if (imRegs != null && !imRegs.isEmpty()) {
                 LOG.debug("creating copy of existing import registrations");
-                ImportRegistrationImpl irParent = imRegs.iterator().next();
-                ImportRegistrationImpl ir = new ImportRegistrationImpl(irParent);
+                ImportRegistration irParent = imRegs.iterator().next();
+                ImportRegistration ir = new ImportRegistrationImpl(irParent);
                 imRegs.add(ir);
                 eventProducer.publishNotification(ir);
                 return ir;
@@ -384,7 +420,7 @@ public class RemoteServiceAdminCore implements RemoteServiceAdmin {
 
             ImportRegistrationImpl imReg = exposeServiceFactory(matchingInterfaces.toArray(new String[matchingInterfaces.size()]), endpoint, provider);
             if (imRegs == null) {
-                imRegs = new ArrayList<ImportRegistrationImpl>();
+                imRegs = new ArrayList<ImportRegistration>();
                 importedServices.put(endpoint, imRegs);
             }
             imRegs.add(imReg);
@@ -413,7 +449,7 @@ public class RemoteServiceAdminCore implements RemoteServiceAdmin {
     protected ImportRegistrationImpl exposeServiceFactory(String[] interfaceNames,
                                             EndpointDescription epd,
                                             DistributionProvider handler) {
-        ImportRegistrationImpl imReg = new ImportRegistrationImpl(epd, this);
+        ImportRegistrationImpl imReg = new ImportRegistrationImpl(epd, closeHandler, eventProducer);
         try {
             EndpointDescription endpoint = imReg.getImportedEndpointDescription();
             Dictionary<String, Object> serviceProps = new Hashtable<String, Object>(endpoint.getProperties());
@@ -472,14 +508,14 @@ public class RemoteServiceAdminCore implements RemoteServiceAdmin {
      *
      * @param eri the export registration to remove
      */
-    protected void removeExportRegistration(ExportRegistrationImpl eri) {
+    protected void removeExportRegistration(ExportRegistration eri) {
         synchronized (exportedServices) {
             for (Iterator<Collection<ExportRegistration>> it = exportedServices.values().iterator(); it.hasNext();) {
                 Collection<ExportRegistration> value = it.next();
                 for (Iterator<ExportRegistration> it2 = value.iterator(); it2.hasNext();) {
                     ExportRegistration er = it2.next();
                     if (er.equals(eri)) {
-                        eventProducer.notifyRemoval(eri.getExportReferenceAlways());
+                        eventProducer.notifyRemoval(eri.getExportReference());
                         it2.remove();
                         if (value.isEmpty()) {
                             it.remove();
@@ -500,15 +536,15 @@ public class RemoteServiceAdminCore implements RemoteServiceAdmin {
     }
 
     // remove all import registrations
-    protected void removeImportRegistrations() {
-        Collection<ImportRegistrationImpl> copy = new ArrayList<ImportRegistrationImpl>();
+    protected void closeImportRegistrations() {
+        Collection<ImportRegistration> copy = new ArrayList<ImportRegistration>();
         synchronized (importedServices) {
-            for (Collection<ImportRegistrationImpl> irs : importedServices.values()) {
+            for (Collection<ImportRegistration> irs : importedServices.values()) {
                 copy.addAll(irs);
             }
         }
-        for (ImportRegistrationImpl ir : copy) {
-            removeImportRegistration(ir);
+        for (ImportRegistration ir : copy) {
+            ir.close();
         }
     }
 
@@ -530,24 +566,33 @@ public class RemoteServiceAdminCore implements RemoteServiceAdmin {
         }
     }
 
-    protected void removeImportRegistration(ImportRegistrationImpl iri) {
+    protected void removeImportRegistration(ImportRegistration iri) {
         synchronized (importedServices) {
             LOG.debug("Removing importRegistration {}", iri);
 
-            Collection<ImportRegistrationImpl> imRegs = importedServices.get(iri.getImportedEndpointAlways());
+            ImportReference importRef = iri.getImportReference();
+            if (importRef == null) {
+                return;
+            }
+
+            EndpointDescription endpoint = importRef.getImportedEndpoint();
+            Collection<ImportRegistration> imRegs = importedServices.get(endpoint);
             if (imRegs != null && imRegs.contains(iri)) {
                 imRegs.remove(iri);
                 eventProducer.notifyRemoval(iri);
             }
             if (imRegs == null || imRegs.isEmpty()) {
-                importedServices.remove(iri.getImportedEndpointAlways());
+                importedServices.remove(endpoint);
             }
         }
     }
 
     public void close() {
-        removeImportRegistrations();
-        bctx.removeServiceListener(exportedServiceListener);
+        LOG.info("Closing " + this.getClass().getSimpleName());
+        closeImportRegistrations();
+        if (exportedServiceListener != null) {
+            bctx.removeServiceListener(exportedServiceListener);
+        }
     }
 
     static void overlayProperties(Map<String, Object> serviceProperties,
@@ -605,12 +650,10 @@ public class RemoteServiceAdminCore implements RemoteServiceAdmin {
         props.put(RemoteConstants.ENDPOINT_FRAMEWORK_UUID, frameworkUUID);
         for (Class<?> iface : ifaces) {
             String pkg = iface.getPackage().getName();
-            props.put(RemoteConstants.ENDPOINT_PACKAGE_VERSION_ + pkg, PackageUtil.getVersion(iface, bctx));
+            props.put(RemoteConstants.ENDPOINT_PACKAGE_VERSION_ + pkg, packageUtil.getVersion(iface));
         }
         return props;
     }
-
-
 
     private void copyEndpointProperties(Map<String, Object> sd, Map<String, Object> endpointProps) {
         Set<Map.Entry<String, Object>> keys = sd.entrySet();
@@ -619,6 +662,13 @@ public class RemoteServiceAdminCore implements RemoteServiceAdmin {
             if (!skey.startsWith(".")) {
                 endpointProps.put(skey, entry.getValue());
             }
+        }
+    }
+    
+    private void checkPermission(EndpointPermission permission) {
+        SecurityManager sm = System.getSecurityManager();
+        if (sm != null) {
+            sm.checkPermission(permission);
         }
     }
 }

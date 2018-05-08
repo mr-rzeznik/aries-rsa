@@ -19,38 +19,54 @@
 package org.apache.aries.rsa.discovery.zookeeper.subscribe;
 
 import org.osgi.framework.BundleContext;
+import org.osgi.framework.Filter;
+import org.osgi.framework.FrameworkUtil;
+import org.osgi.framework.InvalidSyntaxException;
 import org.osgi.framework.ServiceReference;
+import org.osgi.service.remoteserviceadmin.EndpointEventListener;
 import org.osgi.service.remoteserviceadmin.EndpointListener;
 import org.osgi.util.tracker.ServiceTracker;
 
 /**
- * Tracks interest in EndpointListeners. Delegates to InterfaceMonitorManager to manage
- * interest in the scopes of each EndpointListener.
+ * Tracks EndpointListeners and EndpointEventListeners. Delegates to InterestManager to handle them
  */
-public class EndpointListenerTracker extends ServiceTracker<EndpointListener, EndpointListener> {
-    private final InterfaceMonitorManager imManager;
+@SuppressWarnings({ "rawtypes", "deprecation", "unchecked" })
+public class EndpointListenerTracker extends ServiceTracker {
+    private final InterestManager imManager;
 
-    public EndpointListenerTracker(BundleContext bctx, InterfaceMonitorManager imManager) {
-        super(bctx, EndpointListener.class, null);
+    public EndpointListenerTracker(BundleContext bctx, InterestManager imManager) {
+        super(bctx, getfilter(), null);
         this.imManager = imManager;
     }
-
-    @Override
-    public EndpointListener addingService(ServiceReference<EndpointListener> endpointListener) {
-        imManager.addInterest(endpointListener);
-        return null;
+    
+    private static Filter getfilter() {
+        String filterSt = String.format("(|(objectClass=%s)(objectClass=%s))", EndpointEventListener.class.getName(), 
+                EndpointListener.class.getName());
+        try {
+            return FrameworkUtil.createFilter(filterSt);
+        } catch (InvalidSyntaxException e) {
+            throw new IllegalArgumentException(e.getMessage(), e);
+        }
     }
 
     @Override
-    public void modifiedService(ServiceReference<EndpointListener> endpointListener, EndpointListener service) {
+    public Object addingService(ServiceReference sref) {
+        Object epListener = super.addingService(sref);
+        imManager.addInterest(sref, epListener);
+        return epListener;
+    }
+
+    @Override
+    public void modifiedService(ServiceReference sref, Object epListener) {
         // called when an EndpointListener updates its service properties,
         // e.g. when its interest scope is expanded/reduced
-        imManager.addInterest(endpointListener);
+        imManager.addInterest(sref, epListener);
     }
 
     @Override
-    public void removedService(ServiceReference<EndpointListener> endpointListener, EndpointListener service) {
-        imManager.removeInterest(endpointListener);
+    public void removedService(ServiceReference sref, Object epListener) {
+        imManager.removeInterest(sref);
+        super.removedService(sref, epListener);
     }
 
 }

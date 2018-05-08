@@ -32,6 +32,7 @@ import org.fusesource.hawtbuf.proto.PBMessageFactory;
  * </p>
  *
  */
+@SuppressWarnings("rawtypes")
 public class ProtobufSerializationStrategy implements SerializationStrategy {
 
     public static final ProtobufSerializationStrategy INSTANCE = new ProtobufSerializationStrategy();
@@ -102,6 +103,7 @@ public class ProtobufSerializationStrategy implements SerializationStrategy {
         }
     }
 
+    @SuppressWarnings("unchecked")
     public void decodeResponse(ClassLoader loader, Class<?> type, DataByteArrayInputStream source, AsyncCallback result) throws IOException, ClassNotFoundException, NoSuchFieldException, IllegalAccessException, NoSuchMethodException, InvocationTargetException, InstantiationException {
         if( source.readBoolean() ) {
             String className = source.readUTF();

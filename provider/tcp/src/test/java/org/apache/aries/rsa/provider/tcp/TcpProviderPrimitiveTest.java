@@ -18,12 +18,23 @@
  */
 package org.apache.aries.rsa.provider.tcp;
 
+import static java.util.Arrays.asList;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.everyItem;
+import static org.hamcrest.Matchers.isIn;
+import static org.hamcrest.Matchers.samePropertyValuesAs;
 import static org.hamcrest.core.StringStartsWith.startsWith;
+import static org.junit.Assert.assertThat;
+import static org.osgi.framework.Version.parseVersion;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
+import org.apache.aries.rsa.provider.tcp.myservice.DTOType;
 import org.apache.aries.rsa.provider.tcp.myservice.PrimitiveService;
 import org.apache.aries.rsa.provider.tcp.myservice.PrimitiveServiceImpl;
 import org.apache.aries.rsa.spi.Endpoint;
@@ -32,8 +43,10 @@ import org.easymock.EasyMock;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.osgi.framework.BundleContext;
+import org.osgi.framework.Version;
 
 public class TcpProviderPrimitiveTest {
 
@@ -98,7 +111,57 @@ public class TcpProviderPrimitiveTest {
     public void testByteAr() {
         Assert.assertArrayEquals(new byte[]{1}, myServiceProxy.callByteAr(new byte[]{1}));
     }
+    
+    @Test
+    public void testVersion() {
+        assertThat(myServiceProxy.callVersion(parseVersion("1.0.0")), equalTo(parseVersion("1.0.0")));
+    }
+    
+    @Test
+    public void testVersionAr() {
+        assertThat(myServiceProxy.callVersionAr(new Version[] {parseVersion("1.0.0")}), equalTo(new Version[] {parseVersion("1.0.0")}));
+    }
+    
+    @Test
+    public void testVersionList() {
+        assertThat(myServiceProxy.callVersionList(Arrays.asList(parseVersion("1.0.0"))), equalTo(Arrays.asList(parseVersion("1.0.0"))));
+    }
+    
+    @Test
+    public void testVersionSet() {
+        Set<Version> set = new HashSet<>(asList(parseVersion("1.0.0")));
+        assertThat(myServiceProxy.callVersionSet(set), everyItem(isIn(set)));
+    }
+    
+    @Test
+    public void testVersionMap() {
+        HashMap<Version, Version> map = new HashMap<>();
+        map.put(parseVersion("1.2.3"), parseVersion("2.3.4"));
+        assertThat(myServiceProxy.callVersionMap(map).entrySet(), everyItem(isIn(map.entrySet())));
+    }
 
+    /**
+     * TODO DTOs seem to cause stack overflow at least on the apache jenkins (linux).
+     * On a Mac this seems to work.
+     */
+    @Ignore
+    @Test
+    public void testDTO() {
+        DTOType dto = new DTOType();
+        dto.value = "Test";
+        assertThat(myServiceProxy.callDTO(dto), samePropertyValuesAs(dto));
+    }
+    
+    @Ignore
+    @Test
+    public void testDTOAr() {
+        DTOType dto = new DTOType();
+        dto.value = "Test";
+        DTOType[] dtoAr = new DTOType[] {dto};
+        DTOType[] result = myServiceProxy.callDTOAr(dtoAr);
+        assertThat(result[0], samePropertyValuesAs(dtoAr[0]));
+    }
+    
     @AfterClass
     public static void close() throws IOException {
         ep.close();
