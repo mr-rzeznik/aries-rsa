@@ -64,7 +64,6 @@ public class Activator extends BaseActivator implements ManagedService {
         props.put(RemoteConstants.REMOTE_INTENTS_SUPPORTED, new String[]{});
         props.put(RemoteConstants.REMOTE_CONFIGS_SUPPORTED, provider.getSupportedTypes());
         register(DistributionProvider.class, provider, props);
-        //start serializationStrategyListener
         serializationStrategyListener = new SerializationStrategyListener(bundleContext, provider);
         intentListener = new IntentListener(bundleContext, provider);
     }
@@ -72,7 +71,6 @@ public class Activator extends BaseActivator implements ManagedService {
     @Override
     protected void doStop() {
         super.doStop();
-        //stop serializationStrategyListener
         if (serializationStrategyListener != null) {
             try {
                 serializationStrategyListener.close();

@@ -26,7 +26,6 @@ import java.util.Hashtable;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -39,6 +38,7 @@ import org.osgi.framework.ServiceRegistration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+@SuppressWarnings("rawtypes")
 public class BaseActivator implements BundleActivator, Runnable {
 
     protected final Logger logger = LoggerFactory.getLogger(getClass());
@@ -47,9 +47,6 @@ public class BaseActivator implements BundleActivator, Runnable {
     protected ExecutorService executor = new ThreadPoolExecutor(0, 1, 0L, TimeUnit.MILLISECONDS,
             new LinkedBlockingQueue<Runnable>());
     private AtomicBoolean scheduled = new AtomicBoolean();
-	private boolean firstRun = false;
-	private volatile Future delayedReconfigure;
-	protected final Object runSync = new Object();
 
     private long schedulerStopTimeout = TimeUnit.MILLISECONDS.convert(30, TimeUnit.SECONDS);
 
@@ -79,21 +76,9 @@ public class BaseActivator implements BundleActivator, Runnable {
                 doStop();
             }
         } else {
-			if (!firstRun) {
-				delayedReconfigure = executor.submit(new Runnable() {
-					@Override
-					public void run() {
-						try {
-							Thread.sleep(5000);
-						} catch (InterruptedException e) {
-							logger.info("Delayed reconfigure and run interrupted");
-						}
 						reconfigure();
 					}
-				});
 			}
-        }
-    }
 
     @Override
     public void stop(BundleContext context) throws Exception {
@@ -240,7 +225,6 @@ public class BaseActivator implements BundleActivator, Runnable {
 
     @Override
     public void run() {
-		synchronized (runSync) {
 			scheduled.set(false);
 			doStop();
 			try {
@@ -250,7 +234,6 @@ public class BaseActivator implements BundleActivator, Runnable {
 				doStop();
 			}
 		}
-    }
 
     /**
      * Called in {@link #doStart()}.

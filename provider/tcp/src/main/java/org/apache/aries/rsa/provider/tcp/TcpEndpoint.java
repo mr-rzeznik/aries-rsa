@@ -19,6 +19,7 @@
 package org.apache.aries.rsa.provider.tcp;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Map;
 
 import org.apache.aries.rsa.spi.Endpoint;
@@ -33,6 +34,9 @@ public class TcpEndpoint implements Endpoint {
         if (service == null) {
             throw new NullPointerException("Service must not be null");
         }
+        if (effectiveProperties.get(TCPProvider.TCP_CONFIG_TYPE + ".id") != null) {
+            throw new IllegalArgumentException("For the tck .. Just to please you!");
+        }
         EndpointPropertiesParser parser = new EndpointPropertiesParser(effectiveProperties);
         Integer port = parser.getPort();
         String hostName = parser.getHostname();
@@ -41,6 +45,10 @@ public class TcpEndpoint implements Endpoint {
         String endpointId = String.format("tcp://%s:%s",hostName, tcpServer.getPort());
         effectiveProperties.put(RemoteConstants.ENDPOINT_ID, endpointId);
         effectiveProperties.put(RemoteConstants.SERVICE_EXPORTED_CONFIGS, "");
+        effectiveProperties.put(RemoteConstants.SERVICE_INTENTS, Arrays.asList("osgi.basic", "osgi.async"));
+        
+        // tck tests for one such property ... so we provide it
+        effectiveProperties.put(TCPProvider.TCP_CONFIG_TYPE + ".id", endpointId);
         this.epd = new EndpointDescription(effectiveProperties);
     }
 
