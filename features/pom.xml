@@ -31,7 +31,7 @@
     <artifactId>rsa-features</artifactId>
     <packaging>pom</packaging>
     <version>1.12.0.KB</version>
-    <name>Aries Remote Service Admin Features</name>
+    <name>Aries Remote Service Admin Features (kb-fork)</name>
 
     <properties>
         <parent.project.version>1.12.0</parent.project.version>
@@ -69,7 +69,7 @@
         <dependency>
             <groupId>org.apache.aries.rsa</groupId>
             <artifactId>org.apache.aries.rsa.topology-manager</artifactId>
-            <version>${parent.project.version}</version>
+            <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.aries.rsa.discovery</groupId>

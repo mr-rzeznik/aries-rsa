@@ -24,7 +24,7 @@
         <feature>eventadmin</feature>
         <bundle>mvn:org.apache.aries.rsa/org.apache.aries.rsa.spi/${parent.project.version}</bundle>
         <bundle>mvn:org.apache.aries.rsa/org.apache.aries.rsa.core/${parent.project.version}</bundle>
-        <bundle>mvn:org.apache.aries.rsa/org.apache.aries.rsa.topology-manager/${parent.project.version}</bundle>
+        <bundle>mvn:org.apache.aries.rsa/org.apache.aries.rsa.topology-manager/${project.version}</bundle>
         <bundle>mvn:org.apache.aries.rsa.discovery/org.apache.aries.rsa.discovery.command/${parent.project.version}</bundle>
         <bundle>mvn:org.apache.aries.rsa/org.apache.aries.rsa.eapub/${parent.project.version}</bundle>
     </feature>

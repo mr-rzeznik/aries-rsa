@@ -30,7 +30,7 @@
     <artifactId>org.apache.aries.rsa.provider.fastbin</artifactId>
     <version>1.12.0.KB</version>
     <packaging>bundle</packaging>
-    <name>Aries Remote Service Admin provider FastBin</name>
+    <name>Aries Remote Service Admin provider FastBin (kb-fork)</name>
     <description>Provider for Java Serialization over FastBin</description>
 
     <properties>
